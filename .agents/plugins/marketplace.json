@@ -1,0 +1,19 @@
+{
+  "name": "codex-companion-local",
+  "interface": {
+    "displayName": "Codex Companion - LOCAL"
+  },
+  "plugins": [
+    {
+      "name": "codex-companion",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

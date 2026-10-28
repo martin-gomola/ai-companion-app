@@ -1,0 +1,23 @@
+[project]
+name = "codex-companion"
+version = "0.1.0"
+description = "Live, read-only view of what a Codex chat is doing and the decisions it makes."
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.scripts]
+codex-companion = "codex_companion.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codex_companion"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,20 @@
+{
+  "name": "codex-companion",
+  "version": "0.1.0",
+  "description": "Live companion view of what the current Codex chat is doing and the decisions it makes.",
+  "author": { "name": "Martin Gomola" },
+  "license": "MIT",
+  "keywords": ["companion", "dashboard", "decisions", "observability"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Codex Companion",
+    "shortDescription": "See what the agent is doing and why",
+    "longDescription": "Ends every turn with a short Outcome and Next step that the local dashboard at http://127.0.0.1:8787 turns into an inbox of your chats, and lets the agent log the decisions it makes.",
+    "developerName": "Martin Gomola",
+    "category": "Productivity",
+    "capabilities": ["Instructions"],
+    "defaultPrompt": ["End your answers in the companion handoff format."],
+    "brandColor": "#4F9A8B"
+  }
+}
