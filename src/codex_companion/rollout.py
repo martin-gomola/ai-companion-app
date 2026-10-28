@@ -120,6 +120,8 @@ class ThreadState:
         data = asdict(self)
         data["turns"] = [asdict(turn) for turn in self.turns]
         data["steps"] = [asdict(step) for step in self.steps]
+        turn = data["turns"][-1] if data["turns"] else {"next_kind": "unknown", "next_text": ""}
+        data["needs_you"] = needs_you({**turn, "status": self.status})
         return data
 
 
@@ -612,6 +614,7 @@ class Sessions:
                 "question": pending.question if pending else "",
                 "attention_key": state.attention_key,
             })
+            cached[1]["needs_you"] = needs_you(cached[1])
             self._inbox[path] = cached
         return {**cached[1], "project": self.project_name(cached[1]["cwd"]), "title": titles.get(thread_id_of(path), "")}
 

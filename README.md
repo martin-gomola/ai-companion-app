@@ -121,7 +121,7 @@ agents that skip the handoff format, show the fallback paragraph and usually an 
 
 | Route | Returns |
 | --- | --- |
-| `GET /api/inbox` | Recent chats with status, outcome, and next step |
+| `GET /api/inbox` | Recent chats with status, outcome, next step, and whether they need you |
 | `GET /api/threads/<id>` | Snapshot of one chat |
 | `GET /api/stream?thread=<id>` | Server-sent `thread` events when that chat changes; without `thread`, `inbox` events |
 

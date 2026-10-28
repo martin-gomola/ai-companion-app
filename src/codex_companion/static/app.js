@@ -136,7 +136,7 @@ function needsAttention(chat) {
 }
 
 function hasAttention(chat) {
-  return chat.status === "waiting" || (chat.status === "done" && Object.hasOwn(NEXT_LABEL, chat.next_kind) && Boolean(chat.next_text));
+  return Boolean(chat.needs_you);
 }
 
 function reminderDismissed(chat) {

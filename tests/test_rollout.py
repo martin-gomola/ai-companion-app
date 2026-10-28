@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 import pytest
@@ -255,6 +257,37 @@ def test_superseded_turn_is_closed_as_interrupted() -> None:
     first, second = parser.state.turns
     assert (first.status, first.ended_at) == ("interrupted", "2026-10-27T10:12:00Z")
     assert (second.status, parser.state.status) == ("working", "working")
+
+
+def test_rewritten_shorter_file_is_reparsed_from_the_start(codex_home: Path) -> None:
+    sessions = Sessions(codex_home)
+    path = sessions.find(THREAD)
+    assert path is not None and sessions.state(THREAD) is not None
+    path.write_text(json.dumps(meta(THREAD)) + "\n" + json.dumps(event("2026-10-27T11:00:00Z", {"type": "task_started"})) + "\n")
+    state = sessions.state(THREAD)
+    assert state is not None
+    assert (state.status, len(state.turns), state.decisions) == ("working", 1, [])
+
+
+def test_tail_skips_the_partial_first_line_and_waits_for_a_complete_last_line(tmp_path: Path) -> None:
+    path = tmp_path / f"rollout-x-{THREAD}.jsonl"
+    started = json.dumps(event("2026-10-27T10:00:00Z", {"type": "task_started"})) + "\n"
+    complete = json.dumps(event("2026-10-27T10:00:01Z", {"type": "task_complete"})) + "\n"
+    path.write_text(json.dumps(meta(THREAD)) + "\n" + started + complete[:20])
+    tail = RolloutTail(path, THREAD, start=len(json.dumps(meta(THREAD))) + 5)
+    state = tail.read()
+    assert (state.cwd, state.turns, state.status) == ("/w/repo", deque(), "idle")
+    path.write_text(path.read_text() + complete[20:])
+    assert tail.read().status == "done"
+
+
+def test_aborted_turn_is_interrupted() -> None:
+    parser = RolloutParser(THREAD)
+    parser.feed(event("2026-10-27T10:00:00Z", {"type": "task_started"}))
+    parser.feed(event("2026-10-27T10:00:05Z", {"type": "turn_aborted", "reason": "user"}))
+    (turn,) = parser.state.turns
+    assert (turn.status, turn.ended_at, parser.state.status) == ("interrupted", "2026-10-27T10:00:05Z", "interrupted")
+    assert (parser.state.steps[-1].title, parser.state.steps[-1].status) == ("Turn 1 stopped", "failed")
 
 
 def test_rejects_non_thread_ids(codex_home: Path) -> None:
