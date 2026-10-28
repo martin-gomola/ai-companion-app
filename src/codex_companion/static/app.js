@@ -150,7 +150,7 @@ function attentionState(chat) {
 
 function isNewResult(chat) {
   const ended = new Date(chat.turn_ended_at).getTime();
-  return !hasAttention(chat) && chat.status !== "working" && Date.now() - ended < NEW_WINDOW_MS && chat.turn_ended_at > seen.get(chat.id);
+  return !hasAttention(chat) && chat.status !== "working" && chat.status !== "interrupted" && Date.now() - ended < NEW_WINDOW_MS && chat.turn_ended_at > seen.get(chat.id);
 }
 
 function matchesInboxStatus(chat, status) {
