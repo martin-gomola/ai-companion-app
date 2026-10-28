@@ -178,6 +178,24 @@ def test_usage_and_session_metadata_ignore_malformed_values() -> None:
     assert (parser.state.model, parser.state.reasoning_effort) == ("second-model", "")
 
 
+def test_malformed_records_are_skipped_without_losing_later_lines(codex_home: Path) -> None:
+    sessions = Sessions(codex_home)
+    path = sessions.find(THREAD)
+    assert path is not None and sessions.state(THREAD) is not None
+    reply = '<send_user_message_question_reply>["yes"]</send_user_message_question_reply>'
+    append(
+        path,
+        event("2026-10-27T10:10:00Z", {"type": "task_started"}),
+        item("2026-10-27T10:10:01Z", {"type": "AgentMessage", "content": [], "questions": ["Pick one?"]}),
+        item("2026-10-27T10:10:02Z", {"type": "FileChange", "changes": [{"path": "a.py"}]}),
+        item("2026-10-27T10:10:03Z", {"type": "UserMessage", "content": [{"text": reply}]}),
+        event("2026-10-27T10:10:04Z", {"type": "task_complete", "duration_ms": "12"}),
+    )
+    state = sessions.state(THREAD)
+    assert state is not None
+    assert (state.status, state.turns[-1].index, state.turns[-1].files) == ("done", 2, [])
+
+
 def test_rejects_non_thread_ids(codex_home: Path) -> None:
     sessions = Sessions(codex_home)
     assert sessions.find("../../etc/passwd") is None

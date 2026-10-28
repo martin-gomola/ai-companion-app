@@ -246,7 +246,8 @@ class RolloutParser:
                 turn.status = "waiting" if pending else "done"
                 if pending and turn.next_kind in ("unknown", "none"):
                     turn.next_kind, turn.next_text = "answer", pending[0].question
-                seconds = round((payload.get("duration_ms") or 0) / 1000)
+                duration = payload.get("duration_ms")
+                seconds = round(duration / 1000) if isinstance(duration, (int, float)) else 0
                 self._step(at, "turn", f"Turn {turn.index} finished", f"{seconds}s" if seconds else "")
             state.status = turn.status
         elif event == "token_count":
@@ -283,6 +284,8 @@ class RolloutParser:
             else:
                 self._step(at, "message", text)
             for question in item.get("questions") or []:
+                if not isinstance(question, dict):
+                    continue
                 self._attention(at, "question", question)
                 options = [str(option) for option in question.get("options") or []]
                 title = _clip(str(question.get("title", "")))
@@ -295,7 +298,8 @@ class RolloutParser:
         elif kind == "CommandExecution":
             self._command(at, turn, item)
         elif kind == "FileChange":
-            paths = list((item.get("changes") or {}).keys())
+            changes = item.get("changes")
+            paths = list(changes) if isinstance(changes, dict) else []
             turn.files.extend(path for path in paths if path not in turn.files)
             turn.edited_after_check = turn.edited_after_check or bool(turn.checks)
             noun = "file" if len(paths) == 1 else "files"
@@ -328,6 +332,8 @@ class RolloutParser:
         except json.JSONDecodeError:
             replies = []
         for reply in replies if isinstance(replies, list) else []:
+            if not isinstance(reply, dict):
+                continue
             question, answer = _clip(str(reply.get("question", ""))), _clip(str(reply.get("answer", "")), 120)
             decision = next((d for d in pending if d.question == question), pending[0] if pending else None)
             if decision is not None:
@@ -400,8 +406,13 @@ class RolloutTail:
                     record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(record, dict):
+                if not isinstance(record, dict):
+                    continue
+                # The offset already covers this chunk, so one unexpected record must not drop the rest.
+                try:
                     self.parser.feed(record)
+                except (TypeError, AttributeError, ValueError):
+                    continue
         return self.parser.state
 
 
