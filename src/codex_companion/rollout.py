@@ -21,6 +21,8 @@ MAX_TURNS = 30
 MAX_TEXT = 280
 MAX_TAILS = 16
 INBOX_TAIL_BYTES = 8 * 1024 * 1024
+ATTENTION_DAYS = 14
+ACTION_KINDS = {"answer", "review", "approve", "run", "decide", "do"}
 # Substring prefilter: rollout files carry multi-megabyte encrypted reasoning lines we never need to parse.
 WANTED = (b'"item_completed"', b'"task_started"', b'"task_complete"', b'"turn_aborted"', b'"session_meta"', b'"turn_context"', b'"token_count"')
 TOKEN_FIELDS = ("input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens")
@@ -177,6 +179,13 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
         else:
             kind = "do"
     return _clip(outcome, 200), kind, step_text, True
+
+
+def needs_you(entry: dict[str, Any]) -> bool:
+    """A pending question, or a finished turn that recorded an action for the user."""
+    if entry["status"] == "waiting":
+        return True
+    return entry["status"] == "done" and entry["next_kind"] in ACTION_KINDS and bool(entry["next_text"])
 
 
 def user_text(text: str) -> str:
@@ -559,40 +568,52 @@ class Sessions:
 
     def _read_inbox(self, limit: int) -> list[dict[str, Any]]:
         titles = self.titles()
-        entries = []
         chats = self.chats(limit)
-        for path in chats:
+        entries = [entry for path in chats if (entry := self._entry(path, titles))]
+        # Older chats that still need the user stay visible; unchanged files hit the signature cache.
+        kept = set(chats)
+        cutoff = time.time() - ATTENTION_DAYS * 86400
+        for path in self.rollouts():
+            if path in kept or self.is_subagent(path):
+                continue
             try:
-                signature = _signature(path)
+                if path.stat().st_mtime < cutoff:
+                    break
             except OSError:
                 continue
-            cached = self._inbox.get(path)
-            if cached is None or cached[0] != signature:
-                tail = RolloutTail(path, thread_id_of(path), start=max(0, signature[0] - INBOX_TAIL_BYTES))
-                state = tail.read()
-                turn = state.turns[-1] if state.turns else None
-                pending = next((d for d in reversed(state.decisions) if d.source == "asked" and d.chosen is None), None)
-                cached = (signature, {
-                    "id": state.id,
-                    "cwd": state.cwd,
-                    "status": state.status,
-                    "updated_at": _iso(signature[1] / 1e9),
-                    "turn_ended_at": turn.ended_at if turn else "",
-                    "outcome": turn.outcome if turn else "",
-                    "next_kind": turn.next_kind if turn else "unknown",
-                    "next_text": turn.next_text if turn else "",
-                    "question": pending.question if pending else "",
-                    "attention_key": state.attention_key,
-                })
-                self._inbox[path] = cached
-            entries.append({
-                **cached[1],
-                "project": self.project_name(cached[1]["cwd"]),
-                "title": titles.get(thread_id_of(path), ""),
-            })
-        for stale in set(self._inbox) - set(chats):
+            kept.add(path)
+            entry = self._entry(path, titles)
+            if entry and needs_you(entry):
+                entries.append(entry)
+        for stale in set(self._inbox) - kept:
             del self._inbox[stale]
         return entries
+
+    def _entry(self, path: Path, titles: dict[str, str]) -> dict[str, Any] | None:
+        try:
+            signature = _signature(path)
+        except OSError:
+            return None
+        cached = self._inbox.get(path)
+        if cached is None or cached[0] != signature:
+            tail = RolloutTail(path, thread_id_of(path), start=max(0, signature[0] - INBOX_TAIL_BYTES))
+            state = tail.read()
+            turn = state.turns[-1] if state.turns else None
+            pending = next((d for d in reversed(state.decisions) if d.source == "asked" and d.chosen is None), None)
+            cached = (signature, {
+                "id": state.id,
+                "cwd": state.cwd,
+                "status": state.status,
+                "updated_at": _iso(signature[1] / 1e9),
+                "turn_ended_at": turn.ended_at if turn else "",
+                "outcome": turn.outcome if turn else "",
+                "next_kind": turn.next_kind if turn else "unknown",
+                "next_text": turn.next_text if turn else "",
+                "question": pending.question if pending else "",
+                "attention_key": state.attention_key,
+            })
+            self._inbox[path] = cached
+        return {**cached[1], "project": self.project_name(cached[1]["cwd"]), "title": titles.get(thread_id_of(path), "")}
 
     def inbox_fingerprint(self, limit: int = 30) -> str:
         parts = []

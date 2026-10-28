@@ -83,7 +83,8 @@ The companion tails those files; it never writes to `~/.codex`.
 
 - **Inbox.** Chats are grouped by project in collapsible sections, with an overview of chats that
   need you, chats still working, and unseen results from the last 24 hours. It covers the 30 most
-  recently updated chats and hides sub-agent chats. Project previews keep active chats and recorded
+  recently updated chats, plus older chats from the last 14 days that still need you, and hides
+  sub-agent chats. Project previews keep active chats and recorded
   next actions visible; older history sits behind a disclosure. Filtered chat links keep their
   return scope.
 - **Project labels.** The session's working directory is matched to project roots in Codex's local

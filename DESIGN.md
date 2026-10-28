@@ -27,7 +27,8 @@ The replacement gives each project one surface and separates its chats with quie
   its chat directly when there is one match. Multiple matches use a bookmarkable status-filtered
   view with matching projects expanded, a selected shortcut, and All recent chats recovery.
   Empty status views explain that no chats match. Counts cover the recent inbox window: the server
-  currently loads the 30 most recently updated chats. This is not a full-account attention audit.
+  loads the 30 most recently updated chats, plus older chats from the last 14 days that still need
+  the user. This is not a full-account attention audit.
   Needs you includes pending questions and finished replies with an explicit recorded next action.
   Reading a chat does not imply that the action was completed. These chats are not also counted as
   unseen New results; source execution status remains unchanged.

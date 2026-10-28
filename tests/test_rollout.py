@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import pytest
 from conftest import (
     OTHER,
+    RECORDS,
     SUBAGENT,
     THREAD,
     append,
@@ -103,6 +105,20 @@ def test_inbox_skips_subagents_and_reads_only_the_tail(codex_home: Path, monkeyp
     append(path, event("2026-10-27T10:05:00Z", {"type": "task_started"}))
     assert {entry["id"]: entry for entry in sessions.inbox()}[THREAD]["status"] == "working"
     assert {entry["id"]: entry for entry in sessions.inbox()}[THREAD]["cwd"] == "/w/repo"
+
+
+def test_inbox_keeps_older_chats_that_still_need_you(codex_home: Path) -> None:
+    done = [meta(OTHER), event("2026-10-27T10:00:00Z", {"type": "task_started"}), event("2026-10-27T10:00:01Z", {"type": "task_complete"})]
+    ids = [f"0d3e1000-0000-7000-8000-00000000001{i}" for i in range(4)]
+    paths = {thread: write_rollout(codex_home, thread, [meta(thread), *done[1:]]) for thread in ids}
+    stale_waiting = write_rollout(codex_home, "0d3e1000-0000-7000-8000-000000000020", RECORDS)
+    now = time.time()
+    for age, path in [(1, paths[ids[0]]), (2, paths[ids[1]]), (3 * 86400, codex_home / "sessions/2026/10/27" / f"rollout-2026-10-27T11-03-04-{THREAD}.jsonl"),
+                      (4 * 86400, paths[ids[2]]), (5 * 86400, paths[ids[3]]), (20 * 86400, stale_waiting)]:
+        os.utime(path, (now - age, now - age))
+
+    inbox = [entry["id"] for entry in Sessions(codex_home, scan_ttl=0).inbox(limit=2)]
+    assert inbox == [ids[0], ids[1], THREAD]
 
 
 def test_attention_identity_survives_usage_updates_and_tail_reads(codex_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
