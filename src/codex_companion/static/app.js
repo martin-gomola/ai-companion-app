@@ -224,7 +224,8 @@ function renderRow(chat) {
   const summary = chatSummary(chat);
   if (summary) body.append(el("span", "row-text", summary));
   const meta = el("span", "row-meta");
-  meta.append(el("span", `tag tag--${state}`, status.label));
+  const action = chat.question ? "Answer" : NEXT_LABEL[chat.next_kind];
+  meta.append(el("span", `tag tag--${state}`, state === "waiting" && action ? action : status.label));
   if (unread) meta.append(el("span", "tag tag--new", "New"));
   body.append(meta);
   link.append(badge, body);
