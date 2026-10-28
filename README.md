@@ -140,7 +140,6 @@ docs/images/                  README screenshots
 
 - [Design contract](./DESIGN.md)
 - [Handoff format skill](./plugin/skills/companion-handoff/SKILL.md)
-- [Story specification](./story_specification.md)
 
 ## License
 
