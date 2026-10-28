@@ -5,10 +5,10 @@
       "command": "bash",
       "args": [
         "-lc",
-        "repo=\"${CODEX_COMPANION_REPO:-$HOME/dev/ai-companion-dash}\"; cd \"$repo\" 2>/dev/null || { echo \"codex-companion not found at $repo\" >&2; exit 1; }; exec uv run --quiet codex-companion mcp"
+        "repo=\"${CODEX_COMPANION_REPO:-$HOME/dev/ai-companion-app}\"; cd \"$repo\" 2>/dev/null || { echo \"codex-companion not found at $repo\" >&2; exit 1; }; exec uv run --quiet codex-companion mcp"
       ],
       "enabled": true,
-      "note": "Runs from a repo checkout. Defaults to $HOME/dev/ai-companion-dash; set CODEX_COMPANION_REPO to override."
+      "note": "Runs from a repo checkout. Defaults to $HOME/dev/ai-companion-app; set CODEX_COMPANION_REPO to override."
     }
   }
 }

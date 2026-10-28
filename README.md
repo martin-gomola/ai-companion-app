@@ -44,8 +44,8 @@ The path from a busy afternoon of chats to the next action is:
 ## Start the companion
 
 ```sh
-git clone https://github.com/martin-gomola/ai-companion-app.git ~/dev/ai-companion-dash
-cd ~/dev/ai-companion-dash
+git clone https://github.com/martin-gomola/ai-companion-app.git ~/dev/ai-companion-app
+cd ~/dev/ai-companion-app
 make up
 ```
 
@@ -60,7 +60,7 @@ make mcp
 
 `make mcp` registers this repo as a local plugin marketplace (`.agents/plugins/marketplace.json`
 points to `plugin/`) and installs `codex-companion`. The plugin's MCP server runs from this checkout
-through `uv`. If the repo lives somewhere other than `~/dev/ai-companion-dash`, set
+through `uv`. If the repo lives somewhere other than `~/dev/ai-companion-app`, set
 `CODEX_COMPANION_REPO`.
 
 ## Commands you will use
