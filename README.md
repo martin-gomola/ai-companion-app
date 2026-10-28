@@ -116,6 +116,8 @@ this machine and keeps seen and dismissed state in browser storage. Nothing leav
 
 Recaps are only as good as the agent's final answer. Chats from before the plugin was installed, or
 agents that skip the handoff format, show the fallback paragraph and usually an unknown next step.
+Codex does not write approval requests to rollout files, so a chat blocked on an approval shows as
+Working.
 
 ## API
 
