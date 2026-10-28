@@ -232,6 +232,15 @@ def test_concurrent_reads_feed_each_record_once(codex_home: Path, monkeypatch: p
     assert max(overlaps) == 1
 
 
+def test_superseded_turn_is_closed_as_interrupted() -> None:
+    parser = RolloutParser(THREAD)
+    parser.feed(event("2026-10-27T10:11:00Z", {"type": "task_started"}))
+    parser.feed(event("2026-10-27T10:12:00Z", {"type": "task_started"}))
+    first, second = parser.state.turns
+    assert (first.status, first.ended_at) == ("interrupted", "2026-10-27T10:12:00Z")
+    assert (second.status, parser.state.status) == ("working", "working")
+
+
 def test_rejects_non_thread_ids(codex_home: Path) -> None:
     sessions = Sessions(codex_home)
     assert sessions.find("../../etc/passwd") is None

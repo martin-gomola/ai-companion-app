@@ -241,6 +241,8 @@ class RolloutParser:
         event = payload.get("type")
         if event == "task_started":
             state.attention_key = ""
+            if state.turns and not state.turns[-1].ended_at:
+                state.turns[-1].ended_at, state.turns[-1].status = at, "interrupted"
             index = state.turns[-1].index + 1 if state.turns else 1
             state.turns.append(Turn(index=index, started_at=at))
             state.status = "working"
