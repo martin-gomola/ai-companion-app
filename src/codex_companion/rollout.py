@@ -37,7 +37,8 @@ CHECK_COMMAND = re.compile(
     r"\b(pytest|vitest|jest|mypy|ruff|eslint|tsc|pyright|go test|cargo (test|clippy)|"
     r"(npm|pnpm|yarn|bun) (run )?(test|lint|check|typecheck|build)|make (check|test|lint|ci|build))\b"
 )
-SENTENCE_END = re.compile(r"(?<=[.!?])\s")
+HEADING = re.compile(r"#{1,6}\s+.*|(\*\*|__)[^*_\n]+\1:?")
+REQUEST = re.compile(r"^(please (provide|share|confirm|send|tell)|can you|could you)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -149,15 +150,23 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
     """Return (outcome, next_kind, next_text, formatted) from a final answer.
 
     Answers following the companion format carry `Outcome:` and `Next step:` lines; anything else
-    falls back to the first sentence and an unknown next step.
+    falls back to the first prose paragraph, and to an inferred `answer` step when the reply opens
+    with a request or ends with a question.
     """
     labels = {match.group(1).lower(): match.group(2) for match in ANSWER_LABEL.finditer(text)}
     outcome = labels.get("outcome") or labels.get("result")
     step = labels.get("your next step") or labels.get("next step") or labels.get("next")
     if outcome is None:
-        first = next((part for part in re.split(r"\n\s*\n", text) if part.strip()), "")
-        first = " ".join(line.strip(" -*#>") for line in first.splitlines())
-        return _clip(SENTENCE_END.split(first.strip(), maxsplit=1)[0], 200), "unknown", "", False
+        parts = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+        flat = [" ".join(line.strip(" -*#>") for line in part.splitlines()).strip() for part in parts]
+        body = [line for part, line in zip(parts, flat) if not HEADING.fullmatch(part) and not line.endswith(":")]
+        request = ""
+        if flat and REQUEST.match(flat[0]):
+            request = " ".join(flat[:2]) if flat[0].endswith(":") else flat[0]
+        elif flat and flat[-1].endswith("?"):
+            request = flat[-1]
+        summary = body[0] if body else flat[0] if flat else ""
+        return _clip(summary, 200), "answer" if request else "unknown", _clip(request, 200), False
     kind, step_text = "unknown", _clip(step or "", 200)
     if step is not None:
         if NOTHING_NEEDED.match(step_text):

@@ -27,7 +27,7 @@ def test_folds_a_turn_into_a_summary_steps_and_decisions(codex_home: Path) -> No
     assert (state.context_used, state.context_window) == (250, 1000)
     (turn,) = state.turns
     assert (turn.index, turn.status, turn.prompt) == (1, "waiting", "Fix the login bug")
-    assert (turn.outcome, turn.formatted) == ("Need input.", False)
+    assert (turn.outcome, turn.formatted) == ("Need input. More text.", False)
     assert (turn.next_kind, turn.next_text) == ("answer", "Ship now?")
     assert turn.files == ["/w/repo/auth.py"]
     assert [(c.command, c.exit_code) for c in turn.checks] == [("uv run pytest -q", 1)]
@@ -71,7 +71,14 @@ def test_later_check_clears_the_stale_flag_and_formatted_answer_sets_next_step(c
         ("Outcome: Done.\nNext step: none", ("Done.", "none", "", True)),
         ("## Outcome: Shipped\n- **Next step:** run: make deploy", ("Shipped", "run", "make deploy", True)),
         ("**Result:** Found it\n**Next step:** Check the logs tomorrow", ("Found it", "do", "Check the logs tomorrow", True)),
-        ("Fixed the bug. Also refactored.\n\nMore.", ("Fixed the bug.", "unknown", "", False)),
+        ("Fixed the bug. Also refactored.\n\nMore.", ("Fixed the bug. Also refactored.", "unknown", "", False)),
+        ("Stopped. No source was inspected and no ingestion artifacts were written.",
+         ("Stopped. No source was inspected and no ingestion artifacts were written.", "unknown", "", False)),
+        ("## Decision\n\n**Keep the local CLI.** No queue is needed.\n\nRisk: memory.",
+         ("Keep the local CLI. No queue is needed.", "unknown", "", False)),
+        ("Please provide:\n\n1. The source location.\n2. A license reference.\n\nOnce I have those, I'll continue.",
+         ("1. The source location. 2. A license reference.", "answer", "Please provide: 1. The source location. 2. A license reference.", False)),
+        ("Added the config.\n\nShould I also update staging?", ("Added the config.", "answer", "Should I also update staging?", False)),
     ],
 )
 def test_parse_answer(text: str, expected: tuple[str, str, str, bool]) -> None:

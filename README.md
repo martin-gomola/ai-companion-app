@@ -94,7 +94,8 @@ The companion tails those files; it never writes to `~/.codex`.
   through its `codex://threads/<id>` link.
 - **Handoff format.** The outcome and next step come from the agent's final answer. The plugin's
   `companion-handoff` skill asks agents to start every final answer with `**Outcome:**` and
-  `**Next step:**`. Without those lines, the companion falls back to the answer's first sentence.
+  `**Next step:**`. Without those lines, the companion uses the answer's first prose paragraph and
+  infers an Answer step when the reply opens with a request or ends with a question.
 - **Decisions.** The questions Codex asked you, with your answers, plus choices the agent logs with
   the plugin's `log_decision` MCP tool.
 - **Reminders.** **Dismiss reminder** removes a chat's request from the Needs you count in this
@@ -113,7 +114,7 @@ The server binds to `127.0.0.1` only and rejects other `Host` headers. It reads 
 this machine and keeps seen and dismissed state in browser storage. Nothing leaves the machine.
 
 Recaps are only as good as the agent's final answer. Chats from before the plugin was installed, or
-agents that skip the handoff format, show the fallback sentence and an unknown next step.
+agents that skip the handoff format, show the fallback paragraph and usually an unknown next step.
 
 ## API
 
