@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -16,7 +18,7 @@ from conftest import (
     write_rollout,
 )
 
-from codex_companion.rollout import RolloutParser, Sessions, parse_answer
+from codex_companion.rollout import RolloutParser, RolloutTail, Sessions, parse_answer
 
 
 def test_folds_a_turn_into_a_summary_steps_and_decisions(codex_home: Path) -> None:
@@ -201,6 +203,33 @@ def test_malformed_records_are_skipped_without_losing_later_lines(codex_home: Pa
     state = sessions.state(THREAD)
     assert state is not None
     assert (state.status, state.turns[-1].index, state.turns[-1].files) == ("done", 2, [])
+
+
+def test_concurrent_reads_feed_each_record_once(codex_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = write_rollout(codex_home, OTHER, [meta(OTHER)])
+    sessions = Sessions(codex_home)
+    assert sessions.state(OTHER) is not None
+    append(path, *[command("2026-10-27T10:04:00Z", "ls", 0) for _ in range(20000)])
+    original_read, active, overlaps = RolloutTail.read, [], []
+
+    def tracked_read(self: RolloutTail) -> object:
+        active.append(self)
+        overlaps.append(len(active))
+        time.sleep(0.05)
+        try:
+            return original_read(self)
+        finally:
+            active.remove(self)
+
+    monkeypatch.setattr(RolloutTail, "read", tracked_read)
+    threads = [threading.Thread(target=sessions.state, args=(OTHER,)) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    state = sessions.state(OTHER)
+    assert state is not None and state.version == 20001
+    assert max(overlaps) == 1
 
 
 def test_rejects_non_thread_ids(codex_home: Path) -> None:

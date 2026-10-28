@@ -67,29 +67,31 @@ def create_app(
 
     @app.get("/api/threads/{thread}")
     def thread_state(thread: str) -> dict[str, Any]:
-        state = sessions.state(checked(thread))
-        if state is None:
+        data = sessions.snapshot(checked(thread))
+        if data is None:
             raise HTTPException(status_code=404, detail="no rollout file for this thread")
-        return state.to_json()
+        return data
 
     @app.get("/api/stream")
     async def stream(request: Request, thread: str | None = None) -> StreamingResponse:
         if thread:
             checked(thread)
 
-        def current() -> tuple[str, Callable[[], Any]]:
+        def current(last: str | None) -> tuple[str, Any]:
+            """Blocking file reads; called off the event loop so one large chat cannot stall every stream."""
             if thread:
-                state = sessions.state(thread)
-                return (str(state.version) if state else "missing"), lambda: state.to_json() if state else None
-            return sessions.inbox_fingerprint(INBOX_LIMIT), lambda: sessions.inbox(INBOX_LIMIT)
+                data = sessions.snapshot(thread)
+                return (str(data["version"]) if data else "missing"), data
+            marker = sessions.inbox_fingerprint(INBOX_LIMIT)
+            return marker, sessions.inbox(INBOX_LIMIT) if marker != last else None
 
         async def events() -> AsyncIterator[str]:
             last, idle = None, 0.0
             while not should_stop() and not await request.is_disconnected():
-                marker, payload = current()
+                marker, data = await asyncio.to_thread(current, last)
                 if marker != last:
                     last, idle = marker, 0.0
-                    yield f"event: {'thread' if thread else 'inbox'}\ndata: {json.dumps(payload())}\n\n"
+                    yield f"event: {'thread' if thread else 'inbox'}\ndata: {json.dumps(data)}\n\n"
                 elif idle >= HEARTBEAT_SECONDS:
                     idle = 0.0
                     yield ": heartbeat\n\n"

@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import threading
 import time
 from collections import OrderedDict, deque
 from dataclasses import asdict, dataclass, field
@@ -21,7 +22,7 @@ MAX_TEXT = 280
 MAX_TAILS = 16
 INBOX_TAIL_BYTES = 8 * 1024 * 1024
 # Substring prefilter: rollout files carry multi-megabyte encrypted reasoning lines we never need to parse.
-WANTED = ('"item_completed"', '"task_started"', '"task_complete"', '"turn_aborted"', '"session_meta"', '"turn_context"', '"token_count"')
+WANTED = (b'"item_completed"', b'"task_started"', b'"task_complete"', b'"turn_aborted"', b'"session_meta"', b'"turn_context"', b'"token_count"')
 TOKEN_FIELDS = ("input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens")
 SHELL_WRAPPERS = {"-lc", "-c"}
 MARKDOWN_EMPHASIS = re.compile(r"\*\*|__|`")
@@ -398,26 +399,28 @@ class RolloutTail:
         if size < self.offset:
             self.parser = RolloutParser(self.parser.state.id)
             self.offset, self._skip_partial = 0, False
-        if size > self.offset:
-            with self.path.open("rb") as handle:
-                handle.seek(self.offset)
-                chunk = handle.read(size - self.offset)
-            complete = chunk.rfind(b"\n") + 1
-            self.offset += complete
-            lines = chunk[:complete].splitlines()
-            if self._skip_partial and lines:
-                lines, self._skip_partial = lines[1:], False
-            for raw in lines:
-                line = raw.decode("utf-8", errors="replace")
-                if not any(marker in line for marker in WANTED):
+        if size <= self.offset:
+            return self.parser.state
+        # Line by line: rollouts can be hundreds of megabytes and must not be loaded whole.
+        with self.path.open("rb") as handle:
+            handle.seek(self.offset)
+            while self.offset < size:
+                raw = handle.readline()
+                if not raw.endswith(b"\n"):
+                    break
+                self.offset += len(raw)
+                if self._skip_partial:
+                    self._skip_partial = False
+                    continue
+                if not any(marker in raw for marker in WANTED):
                     continue
                 try:
-                    record = json.loads(line)
+                    record = json.loads(raw.decode("utf-8", errors="replace"))
                 except json.JSONDecodeError:
                     continue
                 if not isinstance(record, dict):
                     continue
-                # The offset already covers this chunk, so one unexpected record must not drop the rest.
+                # One unexpected record must not stop the rest of the file from being read.
                 try:
                     self.parser.feed(record)
                 except (TypeError, AttributeError, ValueError):
@@ -452,6 +455,8 @@ class Sessions:
         self._inbox: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}
         self._project_db_mtime = -1
         self._project_roots: list[tuple[str, str]] = []
+        # Request threads and the event stream share these caches and tails.
+        self._lock = threading.RLock()
 
     def project_name(self, cwd: str) -> str:
         """Match a chat's working directory to Codex's saved project roots when available."""
@@ -547,6 +552,10 @@ class Sessions:
 
     def inbox(self, limit: int = 30) -> list[dict[str, Any]]:
         """Status and latest-turn summary per chat, parsed from each file's tail only."""
+        with self._lock:
+            return self._read_inbox(limit)
+
+    def _read_inbox(self, limit: int) -> list[dict[str, Any]]:
         titles = self.titles()
         entries = []
         chats = self.chats(limit)
@@ -585,7 +594,9 @@ class Sessions:
 
     def inbox_fingerprint(self, limit: int = 30) -> str:
         parts = []
-        for path in self.chats(limit):
+        with self._lock:
+            chats = self.chats(limit)
+        for path in chats:
             try:
                 parts.append(f"{path.name}:{_signature(path)}")
             except OSError:
@@ -593,6 +604,16 @@ class Sessions:
         return "|".join(parts)
 
     def state(self, thread_id: str) -> ThreadState | None:
+        with self._lock:
+            return self._read_state(thread_id)
+
+    def snapshot(self, thread_id: str) -> dict[str, Any] | None:
+        """JSON-ready state, serialized before another thread can feed the same tail."""
+        with self._lock:
+            state = self._read_state(thread_id)
+            return state.to_json() if state else None
+
+    def _read_state(self, thread_id: str) -> ThreadState | None:
         path = self.find(thread_id)
         if path is None:
             return None
