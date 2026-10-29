@@ -11,7 +11,7 @@
 [Start the companion](#start-the-companion) · [Commands](#commands-you-will-use) ·
 [How it works](#how-it-works) · [Guides](#guides)
 
-<img src="docs/images/inbox.png" width="260" alt="Inbox with chats grouped by project: two need you, one is working, one has a new result">
+<img src="docs/images/inbox.png" width="260" alt="Inbox with a status summary, then chats that need you, are working, and have new results">
 <img src="docs/images/chat-waiting.png" width="260" alt="Chat waiting for an answer, with the question, its options, and the checks that ran">
 <img src="docs/images/chat-done.png" width="260" alt="Finished chat with its outcome, a failed then passing test run, and an agent decision">
 
@@ -81,12 +81,12 @@ through `uv`. If the repo lives somewhere other than `~/dev/ai-companion-app`, s
 Codex writes every chat to `~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<thread_id>.jsonl`.
 The companion tails those files; it never writes to `~/.codex`.
 
-- **Inbox.** Chats are grouped by project in collapsible sections, with an overview of chats that
-  need you, chats still working, and unseen results from the last 24 hours. It covers the 30 most
-  recently updated chats, plus older chats from the last 14 days that still need you, and hides
-  sub-agent chats. Project previews keep active chats and recorded
-  next actions visible; older history sits behind a disclosure. Filtered chat links keep their
-  return scope.
+- **Inbox.** A summary at the top counts all chats, chats that need you, chats still working, and
+  unseen results from the last 24 hours; each count is also a filter. Below it, chats are listed in
+  sections in that order, then Earlier. A section with more than five chats ends with **Show all**.
+  It covers the 30 most recently updated chats, plus older chats from the last 14 days that still
+  need you, and hides sub-agent chats. Filtered chat links keep their return scope. The page
+  follows the system light or dark appearance.
 - **Project labels.** The session's working directory is matched to project roots in Codex's local
   state database. When that is unavailable, the label is the working-directory name.
 - **Chat page.** The latest turn's outcome and next step, the files it changed, the checks it ran
@@ -103,7 +103,7 @@ The companion tails those files; it never writes to `~/.codex`.
   browser, and **Restore reminder** brings it back. A new recorded request resurfaces on its own.
   Dismissals sync between tabs on the same origin and never answer a question or approve work in
   Codex. If browser storage fails, the reminder stays active; clearing site data clears dismissals.
-- **Session info.** The expandable info bar shows the latest reported token totals and last-request
+- **Session info.** The Session details row shows the latest reported token totals and last-request
   usage from `token_count` records, and model and effort from `turn_context`. Session metadata
   supplies the provider, recorded Git branch, client version, and working directory. Cached input
   and reasoning are subsets of input and output, not extra totals. Missing counts stay unknown.
