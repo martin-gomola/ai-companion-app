@@ -47,7 +47,7 @@
 </header>
 <main class="page">
   <header class="top" id="thread-heading" hidden>
-    <h1 id="title">Loading</h1>
+    <h1 id="title">Loading…</h1>
     <p class="subtitle" id="subtitle" hidden></p>
   </header>
 
@@ -66,7 +66,7 @@
   <div id="thread-view" hidden>
     <div class="panel-head" id="panel-head" hidden>
       <div class="panel-heading">
-        <h2 id="panel-title" tabindex="-1">Loading</h2>
+        <h2 id="panel-title" tabindex="-1">Loading…</h2>
         <p class="subtitle" id="panel-subtitle"></p>
       </div>
       <button type="button" class="button" id="panel-close">Close</button>
@@ -74,7 +74,7 @@
     <section class="card status-card" id="status-card" aria-labelledby="status-title" data-status="idle">
       <div class="status-head">
         <span class="glyph"><svg aria-hidden="true"><use id="status-icon" href="#i-turn"/></svg></span>
-        <h2 id="status-title">Loading</h2>
+        <h2 id="status-title">Loading…</h2>
         <a class="open-codex" id="open-codex" href="codex://threads/" aria-label="Open in Codex (full chat)" hidden>Open in Codex<svg aria-hidden="true"><use href="#i-external"/></svg></a>
       </div>
       <div class="status-body" id="status-body" data-kind="unknown" hidden>
@@ -82,7 +82,7 @@
         <div class="status-text" id="status-text" aria-live="polite"></div>
         <ul class="options" id="next-options" hidden></ul>
         <div class="reminder-controls" id="reminder-controls" hidden>
-          <button type="button" class="button" id="reminder-toggle">Dismiss reminder</button>
+          <button type="button" class="button button-quiet" id="reminder-toggle">Dismiss reminder</button>
           <p id="reminder-note" role="status"></p>
         </div>
       </div>

@@ -132,10 +132,10 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
   glyph. Disclosure rows lead with a muted icon. The agent's decision sits in a 6% purple-tinted
   block under a purple label.
 - No colored side stripes on cards, rows, or quotes: that idiom reads as generic generated UI. The
-  status card is a small window instead: its title bar (glyph, status, Open in Codex) carries an 8%
-  tint of the status color, a hairline in that color separates the plain body, and the card border
-  takes the status color. The bar holds only its own status ink, which stays at 4.5:1 at 8%; tints
-  that can hold any status ink stay at 6%. On phones,
+  status card is one surface: for needs you, working, and stopped it takes a 6% tint and a border
+  in the status color, with no inner band or divider, so the header reads as part of the card. At
+  6% every text and status ink stays at 4.5:1. Open in Codex is the only filled action; Dismiss
+  reminder is a quiet muted text button beside its note, still a 44px target. On phones,
   disclosure-row values move under their label instead of squeezing it.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
   Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.

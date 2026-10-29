@@ -595,11 +595,11 @@ function cardFor(id) {
 }
 
 function resetThread() {
-  $("panel-title").textContent = "Loading";
+  $("panel-title").textContent = "Loading…";
   $("panel-subtitle").textContent = "";
   $("status-card").dataset.status = "idle";
   $("status-icon").setAttribute("href", "#i-turn");
-  $("status-title").textContent = "Loading";
+  $("status-title").textContent = "Loading…";
   for (const id of ["status-body", "open-codex", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
   for (const details of $("thread-view").querySelectorAll("details")) details.open = false;
   $("thread-view").scrollTop = 0;

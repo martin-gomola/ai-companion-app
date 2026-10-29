@@ -240,3 +240,12 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   4.52:1, waiting ink and muted text on the 6% accent row at least 4.5:1, dark accent on the dark
   row at least 4.5:1; the delivery validator passed. Phone, 200% text, and board views in both
   themes showed no overflow or controls under 44px; 31 tests pass.
+
+## One-surface status card and a quiet dismiss on 2026-10-29
+
+- The status card's tinted title band and inner divider are gone: the whole card carries the 6%
+  status tint and status border. Dismiss reminder is a muted underlined text button (44px target)
+  instead of a bordered button; the panel Close button keeps its bordered style. Muted text on the
+  6% tints and white on the hovered Open in Codex fill stay at least 4.5:1; the validator passed.
+  Phone, 200% text, and board views in both themes showed no overflow or controls under 44px; 31
+  tests pass.
