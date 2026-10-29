@@ -57,6 +57,8 @@ h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: va
 }
 .theme-toggle::before { content: ""; position: absolute; inset-block: var(--space-3); inset-inline-start: 0; border-inline-start: var(--size-hairline) solid var(--color-separator); }
 .theme-toggle:hover { background: var(--color-fill); }
+#notify-toggle[aria-pressed="true"] { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent-fill) var(--tint-tone), transparent); }
+#notify-toggle[aria-disabled="true"] { color: var(--color-text-muted); cursor: not-allowed; }
 .connection-dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-history-fill); }
 .connection[data-state="live"] .connection-dot { background: var(--color-new-fill); animation: live var(--motion-pulse) var(--ease-standard) 3; }
 @keyframes live {
@@ -160,7 +162,7 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 [data-status="working"] .glyph use { transform-box: fill-box; transform-origin: center; animation: status-working var(--motion-status-working) linear infinite; }
 @keyframes status-working { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.tag { font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.tag { font-size: var(--text-xs); font-weight: var(--weight-semibold); white-space: nowrap; }
 .tag--waiting { color: var(--color-waiting); }
 .tag--working { color: var(--color-working); }
 .tag--new { color: var(--color-new); }
@@ -247,6 +249,8 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 .status-kind, .recap-label { color: var(--color-text-muted); font-size: var(--text-label); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.02em; }
 [data-status="waiting"] .status-kind, [data-quiet="true"] .status-kind, .quiet-note { color: var(--color-waiting); }
 .quiet-note { font-size: var(--text-sm); }
+.status-body[data-check="failed"] .status-text { color: var(--color-danger); }
+@media (max-width: 480px) { .quiet-note { font-size: var(--text-md); } }
 .status-text { font-size: var(--text-md); line-height: var(--leading-relaxed); overflow-wrap: anywhere; white-space: pre-wrap; }
 .status-body:not([data-kind="none"], [data-kind="unknown"]) .status-text { font-size: var(--text-lead); }
 .status-body[data-kind="none"] .status-text, .status-body[data-kind="unknown"] .status-text { color: var(--color-text-muted); }

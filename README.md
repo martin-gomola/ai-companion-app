@@ -113,14 +113,15 @@ Your Turn tails those files; it never writes to `~/.codex`.
   follows the system light or dark appearance; the sun/moon switch in the header overrides it in
   this browser.
 - **Alerts.** The tab title shows the Needs you count and the favicon gets an orange badge. Turn on
-  the bell in the header to get a system notification when a chat newly needs you while the inbox
-  tab is in the background; clicking it opens the chat. Keep the inbox open in a browser tab for
-  this to work.
+  the bell in the header to get a system notification when a chat newly needs you, or has been
+  quiet for five minutes, while the tab is in the background; clicking it opens the chat. It works
+  from the inbox and from chat pages, as long as a Your Turn tab is open.
 - **Quiet chats.** A working chat whose session file has not changed for two minutes is tagged
-  **Quiet · may need approval** and sorts first under Working. It is a hint: the chat may be
-  waiting on an approval prompt, or running a long command.
+  **Quiet 4m** (with the time it has been quiet) and sorts first under Working. It is a hint: the
+  chat may be waiting on an approval prompt, or running a long command.
 - **Check tags.** Rows show **Check failed** when a check's latest run failed and **Edits
-  unchecked** when the latest turn changed files with no test or lint after them.
+  unchecked** when the latest turn changed code with no test or lint after them. Documentation-only
+  edits do not count.
 - **Board.** From 1280px wide, for example on a separate monitor, the inbox becomes a read-only
   board with one column per status. Clicking a card opens the chat in a wide panel, and the board
   collapses into the inbox list beside it until the panel is closed.

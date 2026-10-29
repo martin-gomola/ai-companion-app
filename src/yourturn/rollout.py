@@ -24,6 +24,8 @@ INBOX_TAIL_BYTES = 8 * 1024 * 1024
 ATTENTION_DAYS = 14
 # Codex does not record approval prompts, so a working chat whose file stops growing is the only hint.
 QUIET_SECONDS = 120
+# Edits to these alone have nothing for tests or linters to check.
+DOC_SUFFIXES = (".md", ".mdx", ".rst", ".txt")
 ACTION_KINDS = {"answer", "review", "approve", "run", "decide", "do"}
 # Substring prefilter: rollout files carry multi-megabyte encrypted reasoning lines we never need to parse.
 WANTED = (b'"item_completed"', b'"task_started"', b'"task_complete"', b'"turn_aborted"', b'"session_meta"', b'"turn_context"', b'"token_count"')
@@ -212,7 +214,8 @@ def check_state(turn: Turn | None) -> str:
         return ""
     if any(check.exit_code not in (0, None) for check in turn.checks):
         return "failed"
-    if turn.files and (not turn.checks or turn.edited_after_check):
+    code = [path for path in turn.files if not path.endswith(DOC_SUFFIXES) and "/docs/" not in path]
+    if code and (not turn.checks or turn.edited_after_check):
         return "unchecked"
     return ""
 

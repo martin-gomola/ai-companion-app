@@ -31,11 +31,16 @@ Codex controls.
   the theme switch. The product name lives in the window title and footer, not in a separate header
   line.
 - The tab title carries the Needs you count, as "(2) Your Turn", and the favicon gains an orange
-  badge while any chat needs the user. On a chat page the favicon follows that chat.
-- Notifications are opt-in through the bell and stored in this browser. While the page is hidden
-  or unfocused, a chat that newly needs the user or newly turns quiet (see below) raises one system
-  notification, tagged by chat so repeats replace each other; clicking it opens that chat. Chats
-  that already needed the user when the page loaded do not notify.
+  badge while any chat needs the user. Chat pages also follow the inbox stream, so the badge and
+  notifications cover every chat, not only the open one.
+- Notifications are opt-in through the bell and stored in this browser. The bell always shows a
+  plain bell (the struck-through bell is the status card's dismiss action); on is shown by an
+  accent-tinted pressed state, and its accessible name stays "Desktop notifications". While the
+  page is hidden or unfocused, a chat that newly needs the user, or has been quiet for five minutes,
+  raises one system notification, tagged by chat so repeats replace each other; clicking it opens
+  that chat. Chats that already needed the user when the page loaded do not notify.
+- Ages, quiet durations, and the quiet note refresh every 30 seconds in place, because a quiet chat
+  writes nothing that would push an update.
 - Directly below sits the segmented summary: All, Needs you, Working, and New. It stays pinned while
   the list scrolls. Each segment shows its count and is also the filter for that status, so the
   header doubles as the overview. The selected segment is filled. Segments wrap to a second line
@@ -55,15 +60,17 @@ Codex controls.
   turns are never new results.
 - Quiet: Codex does not record approval prompts, so a working chat whose rollout file has not
   changed for two minutes is flagged `quiet` by the server. It stays in Working (a long build looks
-  the same) but sorts first there and is tagged "Quiet · may need approval" in the needs-you color.
-  Quiet is a hint, never a status: it does not count toward Needs you.
-- Needs you sorts by how long the chat has waited, longest first; other sections sort by latest
-  change.
+  the same) but sorts first there, longest quiet first, and is tagged "Quiet 4m" in the needs-you
+  color, with the approval explanation in its tooltip and on the chat page. Quiet is a hint, never
+  a status: it does not count toward Needs you.
+- Needs you sorts by how long the chat has waited, longest first, and is never capped behind Show
+  all, so the newest request is always visible; other sections sort by latest change.
 - A row shows a circular status glyph, the chat title, its age, a short request or outcome (two
   lines when it needs the user, one otherwise), and a meta line with the action tag (Answer, Run,
   Review, ...), New when unseen, a check tag when the latest finished turn has one ("Check failed"
-  in red when a check's latest run failed, "Edits unchecked" in grey when files changed with no
-  check after them), and the project name. A chevron marks it as navigation. Rows are at
+  in red when a check's latest run failed, "Edits unchecked" in grey when non-documentation files
+  changed with no check after them, omitted when the next step is already Run), and the project
+  name. Tags never wrap internally. A chevron marks it as navigation. Rows are at
   least 44px tall and the whole row is the link.
 - Filtered chat links keep their return scope; the chat page's back link returns to it.
 
@@ -97,11 +104,12 @@ Codex controls.
   - Working: this turn's latest recorded step, as its kind (Ran a command, Edited files, ...) and
     its source title, with commands in mono. The glyph rotates. A recorded command does not mean
     it is still running, and a new turn never shows the previous turn's step. When the chat is
-    quiet, the label reads Quiet (in the needs-you color) and a note under the step says when the
-    last activity was and that the chat may be waiting for approval in Codex or running a long
-    command.
+    quiet, the title reads "Working · quiet", the label reads Quiet (in the needs-you color), and a
+    note under the step gives the clock time and age of the last activity and says the chat may be
+    waiting for approval in Codex or running a long command.
   - Done: "No further action was requested", or "No next action was recorded" when the answer
-    skipped the handoff format.
+    skipped the handoff format. When a check in the latest turn failed, either line adds ", but a
+    check failed" in the danger color.
   - Loading and missing chats hide the handoff.
 - What happened: the latest turn's outcome, when there is one.
 - Changes and checks, as grouped rows: a warning row when files changed after the last check, when

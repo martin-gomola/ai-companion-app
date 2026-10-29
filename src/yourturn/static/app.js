@@ -22,6 +22,8 @@ const STATUS = {
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
 const SECTION_ICONS = { waiting: "i-question", working: "i-working", new: "i-answer", earlier: "i-turn" };
+const QUIET_HINT = "No activity recorded. It may be waiting for your approval in Codex, or running a long command.";
+const QUIET_NOTIFY_MS = 5 * 60 * 1000;
 const CHECK_TAGS = {
   failed: { label: "Check failed", className: "tag--interrupted" },
   unchecked: { label: "Edits unchecked", className: "tag--idle" },
@@ -198,17 +200,24 @@ function renderRow(chat) {
   if (state === "working") syncSpin(glyph.querySelector("use"));
   const body = el("span", "row-body");
   const head = el("span", "row-head");
-  head.append(el("span", "row-title", chatName(chat)), el("span", "row-time", ago(chat.updated_at)));
+  const time = el("span", "row-time", ago(chat.updated_at));
+  time.dataset.ago = chat.updated_at;
+  head.append(el("span", "row-title", chatName(chat)), time);
   body.append(head);
   const summary = chatSummary(chat);
   if (summary) body.append(el("span", "row-text", summary));
   const meta = el("span", "row-meta");
   const action = chat.question ? "Answer" : NEXT_LABEL[chat.next_kind];
   const tag = state === "waiting" ? action || status.label : state === "done" || state === "idle" ? "" : status.label;
-  if (state === "working" && chat.quiet) meta.append(el("span", "tag tag--waiting", "Quiet · may need approval"));
-  else if (tag) meta.append(el("span", `tag tag--${state}`, tag));
+  if (state === "working" && chat.quiet) {
+    const quiet = el("span", "tag tag--waiting", `Quiet ${quietFor(chat)}`);
+    quiet.dataset.quietAt = chat.updated_at;
+    quiet.title = QUIET_HINT;
+    meta.append(quiet);
+  } else if (tag) meta.append(el("span", `tag tag--${state}`, tag));
   if (unread) meta.append(el("span", "tag tag--new", "New"));
-  const check = state === "working" ? "" : CHECK_TAGS[chat.check_state];
+  // A Run step already says the check is still to do.
+  const check = state === "working" || (chat.check_state === "unchecked" && chat.next_kind === "run") ? "" : CHECK_TAGS[chat.check_state];
   if (check) meta.append(el("span", `tag ${check.className}`, check.label));
   meta.append(el("span", "row-project", projectName(chat)));
   body.append(meta);
@@ -220,7 +229,8 @@ function renderRow(chat) {
 }
 
 function renderSection({ key, label }, chats) {
-  const capped = !inboxStatus && !board.matches && key !== "earlier" && chats.length > SECTION_LIMIT;
+  // Needs you is never capped: with longest-wait first, a cap would hide the newest request.
+  const capped = !inboxStatus && !board.matches && key !== "earlier" && key !== "waiting" && chats.length > SECTION_LIMIT;
   const wrap = el("section", "group");
   wrap.dataset.section = key;
   const title = el("h2", "group-title");
@@ -248,8 +258,12 @@ function groupChats(chats) {
   for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   // Longest wait first: the chat that has been blocked on you the longest is the one you are most likely to have missed.
   groups.get("waiting").sort((a, b) => waitingSince(a).localeCompare(waitingSince(b)));
-  groups.get("working").sort((a, b) => Number(b.quiet) - Number(a.quiet));
+  groups.get("working").sort((a, b) => Number(b.quiet) - Number(a.quiet) || (a.quiet ? a.updated_at.localeCompare(b.updated_at) : 0));
   return groups;
+}
+
+function quietFor(chat) {
+  return ago(chat.updated_at).replace(/ ago$/, "");
 }
 
 function waitingSince(chat) {
@@ -339,7 +353,10 @@ function notifyOn() {
 
 function alertOf(chat) {
   if (needsAttention(chat)) return { key: `need:${chat.attention_key || chat.turn_ended_at}`, title: `Needs you: ${chatName(chat)}`, body: chatSummary(chat) || "" };
-  if (chat.status === "working" && chat.quiet) return { key: `quiet:${chat.updated_at}`, title: `Quiet: ${chatName(chat)}`, body: "No activity for 2 minutes. It may be waiting for your approval in Codex." };
+  // Long builds also go quiet, so quiet chats notify later than they are tagged.
+  if (chat.status === "working" && chat.quiet && Date.now() - new Date(chat.updated_at).getTime() > QUIET_NOTIFY_MS) {
+    return { key: `quiet:${chat.updated_at}`, title: `Quiet ${quietFor(chat)}: ${chatName(chat)}`, body: QUIET_HINT };
+  }
   return null;
 }
 
@@ -353,7 +370,7 @@ function notifyChanges(chats) {
       notice.onclick = () => {
         window.focus();
         notice.close();
-        if (board.matches) {
+        if (board.matches && !threadId) {
           history.pushState(null, "", inboxUrl(inboxStatus, chat.id));
           showPanel(chat.id);
         } else location.assign(`/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`);
@@ -366,14 +383,16 @@ function notifyChanges(chats) {
 function syncNotifyToggle() {
   const on = notifyOn();
   const blocked = notifySupported && Notification.permission === "denied";
-  const label = blocked ? "Notifications are blocked in this browser's site settings" : on ? "Stop notifications" : "Notify me when a chat needs me";
-  $("notify-toggle").setAttribute("aria-pressed", String(on));
-  $("notify-toggle").setAttribute("aria-label", label);
-  $("notify-toggle").title = label;
-  $("notify-toggle").querySelector("use").setAttribute("href", on ? "#i-bell" : "#i-bell-off");
+  const toggle = $("notify-toggle");
+  toggle.setAttribute("aria-pressed", String(on));
+  toggle.setAttribute("aria-disabled", String(blocked));
+  toggle.title = blocked ? "Notifications are blocked in this browser's site settings"
+    : on ? "Notifications on while a Your Turn tab is open. Click to turn off."
+    : "Notify me when a chat needs me (while a Your Turn tab is open)";
 }
 
 $("notify-toggle").addEventListener("click", async () => {
+  if (Notification.permission === "denied") return;
   if (notifyOn()) {
     try { localStorage.removeItem("notify"); } catch { /* Stays on until storage works. */ }
   } else if (await Notification.requestPermission() === "granted") {
@@ -455,11 +474,12 @@ function renderStatus(thread, turn) {
   const state = attentionState(chat);
   const status = STATUS[state] || STATUS.idle;
   $("status-card").dataset.status = state;
-  $("status-card").dataset.quiet = String(state === "working" && Boolean(thread.quiet));
-  if (threadId) setFavicon(state === "waiting");
+  const quiet = state === "working" && Boolean(thread.quiet);
+  $("status-card").dataset.quiet = String(quiet);
   $("status-icon").setAttribute("href", `#${status.icon}`);
   if (state === "working") syncSpin($("status-icon"));
-  $("status-title").textContent = status.label;
+  $("status-title").textContent = quiet ? "Working · quiet" : status.label;
+  const failed = thread.status !== "working" && Boolean(turn?.checks.some((check) => check.exit_code !== null && check.exit_code !== 0));
   $("open-codex").href = `codex://threads/${encodeURIComponent(thread.id)}`;
   $("open-codex").hidden = false;
   $("status-body").hidden = false;
@@ -482,15 +502,15 @@ function renderStatus(thread, turn) {
     label = NEXT_LABEL.answer;
     setStatusText(pending.question);
   } else if (kind === "none") {
-    setStatusText("No further action was requested.");
+    setStatusText(failed ? "No further action was requested, but a check failed." : "No further action was requested.");
   } else if (kind === "unknown") {
-    setStatusText("No next action was recorded.");
+    setStatusText(failed ? "No next action was recorded, but a check failed." : "No next action was recorded.");
   } else {
     setStatusText(turn.next_text);
   }
   $("status-body").dataset.kind = kind;
-  const quiet = thread.status === "working" && Boolean(thread.quiet);
-  const quietNote = quiet ? `Last activity ${ago(thread.updated_at)}. It may be waiting for your approval in Codex, or running a long command.` : "";
+  $("status-body").dataset.check = failed && (kind === "none" || kind === "unknown") ? "failed" : "";
+  const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${QUIET_HINT.replace(/^No activity recorded\. /, "")}` : "";
   $("quiet-note").hidden = !quiet;
   if ($("quiet-note").textContent !== quietNote) $("quiet-note").textContent = quietNote;
   $("next-kind").hidden = !label;
@@ -524,6 +544,7 @@ $("reminder-toggle").addEventListener("click", () => {
     else localStorage.setItem(key, threadData.attention_key);
     renderThread(threadData);
     if (inboxData) renderInbox(inboxData);
+    if (attentionData) setFavicon(attentionData.some(needsAttention));
   } catch {
     $("reminder-note").textContent = "Could not save this preference. The reminder remains active.";
   }
@@ -551,6 +572,7 @@ window.addEventListener("storage", (event) => {
   if (event.key === null || event.key.startsWith("reminder:v1:")) {
     if (threadData) renderThread(threadData);
     if (inboxData) renderInbox(inboxData);
+    if (attentionData) setFavicon(attentionData.some(needsAttention));
   }
 });
 
@@ -850,6 +872,20 @@ for (const chip of document.querySelectorAll(".chip")) {
   });
 }
 
+// Nothing is written while a chat is quiet, so durations tick here instead of waiting for the server.
+let attentionData = null;
+setInterval(() => {
+  const chats = inboxData || attentionData;
+  if (chats) notifyChanges(chats);
+  if (document.hidden) return;
+  for (const node of document.querySelectorAll("[data-ago]")) node.textContent = ago(node.dataset.ago);
+  for (const node of document.querySelectorAll("[data-quiet-at]")) node.textContent = `Quiet ${ago(node.dataset.quietAt).replace(/ ago$/, "")}`;
+  if (threadData) renderStatus(threadData, threadData.turns[threadData.turns.length - 1]);
+}, 30_000);
+
+$("notify-toggle").hidden = !notifySupported;
+if (notifySupported) syncNotifyToggle();
+
 if (threadId) {
   $("thread-view").hidden = false;
   $("back").hidden = false;
@@ -858,11 +894,15 @@ if (threadId) {
   $("inbox-title").hidden = true;
   $("thread-heading").hidden = false;
   connect(`/api/stream?thread=${encodeURIComponent(threadId)}`, "thread", renderThread);
+  // The favicon and notifications cover every chat, not just this one; the live label follows this chat's stream.
+  new EventSource("/api/stream").addEventListener("inbox", (message) => {
+    attentionData = JSON.parse(message.data);
+    notifyChanges(attentionData);
+    setFavicon(attentionData.some(needsAttention));
+  });
 } else {
   $("inbox-view").hidden = false;
   $("panel-head").hidden = false;
-  $("notify-toggle").hidden = !notifySupported;
-  if (notifySupported) syncNotifyToggle();
   if (inboxStatus) $("inbox-title").textContent = INBOX_FILTERS[inboxStatus].label;
   connect("/api/stream", "inbox", liveInbox);
   const open = params.get("open");

@@ -66,9 +66,11 @@ def test_inbox_reports_failed_and_unchecked_turns(codex_home: Path) -> None:
                                       edit("2026-10-27T10:00:03Z", "/w/repo/b.py"), end])
     write_rollout(codex_home, SUBAGENT, [meta(SUBAGENT), start, edit("2026-10-27T10:00:01Z", "/w/repo/a.py"),
                                          command("2026-10-27T10:00:02Z", "uv run pytest", 0), end])
+    docs = "0d3e1000-0000-7000-8000-000000000004"
+    write_rollout(codex_home, docs, [meta(docs), start, edit("2026-10-27T10:00:01Z", "/w/repo/docs/SYNC.md"), end])
     states = {entry["id"]: entry["check_state"] for entry in client(codex_home).get("/api/inbox").json()}
 
-    assert states == {THREAD: "failed", OTHER: "unchecked", SUBAGENT: ""}
+    assert states == {THREAD: "failed", OTHER: "unchecked", SUBAGENT: "", docs: ""}
 
 
 def test_stream_sends_the_current_inbox_first(codex_home: Path) -> None:
