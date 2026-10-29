@@ -109,11 +109,17 @@ Codex controls.
 `src/codex_companion/static/tokens.css` owns every color, type size, spacing, radius, and motion
 value; `app.css` only consumes tokens. No UI library, remote font, or image dependency.
 
-- Material: Liquid Glass. A fixed, soft ambient backdrop (blue, pink, and mint glows in light;
-  deep navy, plum, and teal in dark) sits behind translucent glass layers: lists, cards, summary
-  segments, and capsule controls (back, the live state and theme group, Close, secondary buttons, chips). Glass uses
-  backdrop blur and saturation, a bright inner top edge, and a soft drop shadow. Text contrast is
-  computed against glass composited over the darkest and lightest backdrop points.
+- Palette: the companion sits next to Codex, so it uses the Codex catalog themes: GitHub Light
+  (`#f6f8fa` page, `#ffffff` surfaces, `#0969da` accent) and VS Code+ (`#171717` page, `#1e1e1e`
+  surfaces, `#007acc` accent). Status colors reuse the palette roles: added green for new results,
+  removed red for failures, skill purple for working. Two deviations keep text at 4.5:1: in dark,
+  accent text and links use `#3794ff`, with `#007acc` reserved for filled controls with white text,
+  and danger text uses `#f48771` while `#fa423e` stays the glyph fill. GitHub Light has no orange,
+  so needs-you uses `#bc4c00`, GitHub's severe orange.
+- Material: flat Codex background with lightly translucent glass layers: lists, cards, summary
+  segments, and capsule controls (back, the live state and theme group, Close, secondary buttons,
+  chips). Glass uses backdrop blur, a 1px border edge, and a faint shadow. Text contrast is computed
+  against glass composited over the page and with the pressed overlay.
 - Reduced transparency and increased contrast replace glass and backdrop with opaque surfaces;
   increased contrast also strengthens separators and edges. Without backdrop-filter support glass
   becomes nearly opaque.

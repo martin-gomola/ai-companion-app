@@ -1,43 +1,41 @@
 :root {
   color-scheme: light;
-  --color-bg: #eef1f8;
+  /* Light matches the Codex "GitHub Light" theme; dark matches "VS Code+". */
+  --color-bg: #f6f8fa;
   --color-surface: #ffffff;
-  --color-surface-pressed: rgb(120 120 144 / 0.14);
-  --color-fill: rgb(120 120 144 / 0.12);
-  --color-separator: rgb(60 60 67 / 0.18);
-  --color-border-strong: #8a8a8e;
-  --color-text: #000000;
-  --color-text-muted: #636366;
-  --color-accent: #0059bd;
+  --color-surface-pressed: rgb(129 139 152 / 0.08);
+  --color-fill: #f0f2f4;
+  --color-separator: #d1d9e0;
+  --color-border-strong: #818b98;
+  --color-text: #1f2328;
+  --color-text-muted: #59636e;
+  --color-accent: #0969da;
+  --color-accent-fill: #0969da;
   --color-on-accent: #ffffff;
 
-  /* Liquid glass: translucent layers over a soft ambient backdrop. */
-  --bg-ambient:
-    radial-gradient(48rem 32rem at 0% 0%, #d6e2ff, transparent 70%),
-    radial-gradient(40rem 30rem at 100% 10%, #f4dcf3, transparent 70%),
-    radial-gradient(56rem 36rem at 50% 100%, #d5f1e8, transparent 70%),
-    #eef1f8;
-  --glass-bg: rgb(255 255 255 / 0.62);
-  --glass-bar: rgb(255 255 255 / 0.7);
-  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 0 0 1px rgb(255 255 255 / 0.45);
-  --glass-shadow: 0 10px 30px rgb(40 52 96 / 0.1), 0 1px 3px rgb(40 52 96 / 0.08);
-  --glass-blur: blur(24px) saturate(180%);
-  --bar-fade: linear-gradient(to bottom, rgb(238 241 248 / 0.92) 30%, rgb(238 241 248 / 0));
-  --glass-tint-edge: inset 0 1px 0 rgb(255 255 255 / 0.32);
-  --shadow-accent: 0 6px 18px rgb(0 89 189 / 0.28);
-  --glyph-gloss: linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 60%);
+  /* Glass: lightly translucent surfaces over the flat Codex background. */
+  --bg-ambient: #f6f8fa;
+  --glass-bg: rgb(255 255 255 / 0.85);
+  --glass-bar: rgb(255 255 255 / 0.9);
+  --glass-edge: inset 0 0 0 1px #d1d9e0;
+  --glass-shadow: 0 1px 3px rgb(31 35 40 / 0.06);
+  --glass-blur: blur(20px) saturate(160%);
+  --bar-fade: linear-gradient(to bottom, rgb(246 248 250 / 0.94) 30%, rgb(246 248 250 / 0));
+  --glass-tint-edge: inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --shadow-accent: 0 2px 8px rgb(9 105 218 / 0.22);
+  --glyph-gloss: linear-gradient(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 60%);
 
   /* Status roles: ink is for text, fill sits behind an on-status glyph. */
-  --color-waiting: #a34600;
-  --color-waiting-fill: #c75300;
-  --color-waiting-soft: #fff1e0;
-  --color-working: #8034a8;
-  --color-working-fill: #8a3ab5;
-  --color-new: #1b6e30;
-  --color-new-fill: #23843a;
-  --color-danger: #c50013;
-  --color-danger-fill: #d70015;
-  --color-history-fill: #8a8a8e;
+  --color-waiting: #bc4c00;
+  --color-waiting-fill: #bc4c00;
+  --color-waiting-soft: #fff1e5;
+  --color-working: #8250df;
+  --color-working-fill: #8250df;
+  --color-new: #1a7f37;
+  --color-new-fill: #1a7f37;
+  --color-danger: #cf222e;
+  --color-danger-fill: #cf222e;
+  --color-history-fill: #818b98;
   --color-on-status: #ffffff;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -84,44 +82,41 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-bg: #05060a;
-  --color-surface: #1c1c1e;
+  --color-bg: #171717;
+  --color-surface: #1e1e1e;
   --color-surface-pressed: rgb(255 255 255 / 0.06);
-  --color-fill: rgb(255 255 255 / 0.08);
-  --color-separator: rgb(255 255 255 / 0.12);
-  --color-border-strong: #8d8d93;
-  --color-text: #ffffff;
-  --color-text-muted: #b4b4b9;
-  --color-accent: #62b1ff;
-  --color-on-accent: #000000;
-  --bg-ambient:
-    radial-gradient(48rem 32rem at 0% 0%, #1b2a63, transparent 70%),
-    radial-gradient(40rem 30rem at 100% 10%, #3b1d4f, transparent 70%),
-    radial-gradient(56rem 36rem at 50% 100%, #0e3a30, transparent 70%),
-    #05060a;
-  --glass-bg: rgb(44 44 52 / 0.6);
-  --glass-bar: rgb(44 44 52 / 0.72);
-  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.14), inset 0 0 0 1px rgb(255 255 255 / 0.07);
-  --glass-shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
-  --bar-fade: linear-gradient(to bottom, rgb(5 6 10 / 0.92) 30%, rgb(5 6 10 / 0));
-  --shadow-accent: 0 6px 18px rgb(98 177 255 / 0.22);
+  --color-fill: #131313;
+  --color-separator: #2b2b2b;
+  --color-border-strong: #858585;
+  --color-text: #cccccc;
+  --color-text-muted: #9d9d9d;
+  --color-accent: #3794ff;
+  --color-accent-fill: #007acc;
+  --color-on-accent: #ffffff;
+  --bg-ambient: #171717;
+  --glass-bg: rgb(30 30 30 / 0.85);
+  --glass-bar: rgb(30 30 30 / 0.9);
+  --glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  --bar-fade: linear-gradient(to bottom, rgb(23 23 23 / 0.94) 30%, rgb(23 23 23 / 0));
+  --shadow-accent: 0 2px 8px rgb(0 122 204 / 0.3);
 
-  --color-waiting: #ffa53a;
-  --color-waiting-fill: #ff9f0a;
+  --color-waiting: #e5a33b;
+  --color-waiting-fill: #e5a33b;
   --color-waiting-soft: #3a2a14;
-  --color-working: #dd9eff;
-  --color-working-fill: #bf5af2;
-  --color-new: #4cd471;
-  --color-new-fill: #30d158;
-  --color-danger: #ff7d75;
-  --color-danger-fill: #ff453a;
-  --color-history-fill: #8d8d93;
+  --color-working: #ad7bf9;
+  --color-working-fill: #ad7bf9;
+  --color-new: #40c977;
+  --color-new-fill: #40c977;
+  --color-danger: #f48771;
+  --color-danger-fill: #fa423e;
+  --color-history-fill: #6e6e6e;
   --color-on-status: #000000;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root, :root[data-theme="light"] { --glass-bg: rgb(255 255 255 / 0.9); --glass-bar: rgb(255 255 255 / 0.94); }
-  :root[data-theme="dark"] { --glass-bg: rgb(36 36 42 / 0.94); --glass-bar: rgb(36 36 42 / 0.96); }
+  :root, :root[data-theme="light"] { --glass-bg: rgb(255 255 255 / 0.96); --glass-bar: rgb(255 255 255 / 0.96); }
+  :root[data-theme="dark"] { --glass-bg: rgb(30 30 30 / 0.96); --glass-bar: rgb(30 30 30 / 0.96); }
 }
 
 /* Reduced transparency and increased contrast replace glass with opaque surfaces. */

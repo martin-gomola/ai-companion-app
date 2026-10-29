@@ -125,7 +125,7 @@ h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: va
 .segment[data-kind="waiting"][data-empty="false"]:not([aria-current]) .segment-count { color: var(--color-waiting); }
 .segment[data-kind="working"][data-empty="false"]:not([aria-current]) .segment-count { color: var(--color-working); }
 .segment[data-kind="new"][data-empty="false"]:not([aria-current]) .segment-count { color: var(--color-new); }
-.segment[aria-current="page"], .segment[aria-current="page"] .segment-count, .segment[aria-current="page"] .segment-label { background: var(--color-accent); color: var(--color-on-accent); }
+.segment[aria-current="page"], .segment[aria-current="page"] .segment-count, .segment[aria-current="page"] .segment-label { background: var(--color-accent-fill); color: var(--color-on-accent); }
 .segment[aria-current="page"] { box-shadow: var(--glass-tint-edge), var(--shadow-accent); }
 .segment:active { background: var(--color-surface-pressed); }
 
@@ -164,7 +164,7 @@ h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: va
 .open-codex {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   min-height: var(--size-control); padding-inline: var(--space-4);
-  border-radius: var(--radius-pill); background: var(--color-accent); color: var(--color-on-accent);
+  border-radius: var(--radius-pill); background: var(--color-accent-fill); color: var(--color-on-accent);
   box-shadow: var(--glass-tint-edge), var(--shadow-accent);
   font-weight: var(--weight-semibold); text-decoration: none;
 }
@@ -246,7 +246,7 @@ details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
   border: 0; border-radius: var(--radius-pill);
   color: var(--color-text); font: var(--weight-medium) var(--text-sm) / var(--leading-normal) var(--font-sans); cursor: pointer;
 }
-.chip[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); box-shadow: var(--glass-tint-edge), var(--shadow-accent); }
+.chip[aria-pressed="true"] { background: var(--color-accent-fill); color: var(--color-on-accent); box-shadow: var(--glass-tint-edge), var(--shadow-accent); }
 
 .timeline { position: relative; display: grid; gap: var(--space-2); }
 .timeline::before {

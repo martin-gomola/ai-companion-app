@@ -14,7 +14,7 @@
     const theme = stored();
     const dark = theme === "dark" || (theme !== "light" && system.matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#05060a" : "#eef1f8");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#171717" : "#f6f8fa");
     document.dispatchEvent(new Event("themechange"));
   };
   apply();

@@ -190,3 +190,13 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   on Enter, kept the choice across a reload and against a system change, and updated its pictogram,
   accessible name, and `theme-color`. Increased contrast in the dark theme still rendered opaque
   cards. Safari and VoiceOver were not checked.
+
+## Codex-matched palette on 2026-10-29
+
+- Light uses the Codex GitHub Light theme and dark uses VS Code+. Contrast was computed for every
+  text role against the page, composited glass, and the pressed overlay: all are at least 4.5:1.
+  White text on the `#007acc` fill measures 4.51:1. `#007acc` as text would be 3.7:1, so dark links
+  use `#3794ff`.
+- List and chat views at 320, 390, and 430px in both themes, 200% text, and the board and panel at
+  900 and 1440px showed no overflow or controls under 44px. Increased contrast in dark still
+  rendered opaque cards. Side-by-side comparison with a running Codex window was not done.
