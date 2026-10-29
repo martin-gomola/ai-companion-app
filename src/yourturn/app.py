@@ -83,6 +83,9 @@ def create_app(
             if thread:
                 data = sessions.snapshot(thread)
                 return (f"{data['version']}:{data['quiet']}" if data else "missing"), data
+            if last is None:
+                # Warm the entry cache so the first marker already knows which chats are quiet.
+                sessions.inbox(INBOX_LIMIT)
             marker = sessions.inbox_fingerprint(INBOX_LIMIT)
             return marker, sessions.inbox(INBOX_LIMIT) if marker != last else None
 

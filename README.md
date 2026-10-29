@@ -135,8 +135,10 @@ Your Turn tails those files; it never writes to `~/.codex`.
   `your-turn-handoff` skill asks agents to start every final answer with `**Outcome:**` and
   `**Next step:**`, and from the second turn on to add a `**Recap:**` line that sums up the whole
   chat; the chat page shows the latest recap above the outcome, even while a new turn runs.
-  Without those lines, Your Turn uses the answer's first prose paragraph and infers an Answer
-  step when the reply opens with a request or ends with a question.
+  Without those lines, Your Turn uses the answer's first prose paragraph as the outcome and reads
+  the next step from the final prose paragraph: an imperative "Run …" or "Please review …" becomes
+  Run or Review, and a direct question ("Should I…", "Would you like…", a closing "?") becomes
+  Answer. Sign-offs like "Let me know if you have questions" and code blocks are ignored.
 - **Decisions.** The questions Codex asked you, with your answers, plus choices the agent logs with
   the plugin's `log_decision` MCP tool.
 - **Reminders.** **Dismiss reminder** removes a chat's request from the Needs you count in this

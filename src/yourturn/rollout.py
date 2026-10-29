@@ -36,23 +36,30 @@ QUESTION_REPLY = re.compile(r"<send_user_message_question_reply>\s*(.*?)\s*</sen
 # Codex prepends app and environment context to user messages; it is not what the user typed.
 INJECTED_CONTEXT = re.compile(r"<([\w-]*context[\w-]*|user_instructions)\b[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
 ANSWER_LABEL = re.compile(
-    r"^[\s#>*_-]*(outcome|result|next step|your next step|next|recap)[*_\s]*:[*_\s]*(.*)$", re.IGNORECASE | re.MULTILINE
+    # The leading class must not match newlines: with MULTILINE, `\s` there is quadratic on blank lines.
+    r"^[ \t#>*_-]*(outcome|result|next step|your next step|next|recap)[*_\s]*:[*_\s]*(.*)$", re.IGNORECASE | re.MULTILINE
 )
 NEXT_KIND = re.compile(r"^(answer|review|approve|run|decide)\b\s*[:\-–]?\s*", re.IGNORECASE)
 NOTHING_NEEDED = re.compile(r"^(none|nothing|no action|n/a|—|-)\b", re.IGNORECASE)
+# A check is a command that runs the tool itself, so `rg pytest` (exit 1 when nothing matches) is not one.
 CHECK_COMMAND = re.compile(
-    r"\b(pytest|vitest|jest|mypy|ruff|eslint|tsc|pyright|go test|cargo (test|clippy)|"
+    r"(pytest|vitest|jest|mypy|ruff|eslint|tsc|pyright|go test|cargo (test|clippy)|"
     r"(npm|pnpm|yarn|bun) (run )?(test|lint|check|typecheck|build)|make (check|test|lint|ci|build))\b"
 )
+CHECK_PREFIX = re.compile(r"((cd|source) \S+ *&& *|[A-Z_][A-Z0-9_]*=\S* +|(uv run|uvx|npx|bunx|pnpm exec|poetry run|python3? -m) +)*")
 HEADING = re.compile(r"#{1,6}\s+.*|(\*\*|__)[^*_\n]+\1:?")
 REQUEST = re.compile(r"^(please (provide|share|confirm|send|tell)|can you|could you)\b", re.IGNORECASE)
 # An imperative at a sentence start, or after "please" / "you can" and similar; "I ran pytest" never matches.
-ASK_LEAD = r"(?:^|[.!?:;,]\s+|\bthen\s+|\bplease\s+|\byou(?:'ll| can| could| should| may| might| need to| may want to| might want to)\s+)"
+ASK_LEAD = r"(?:^|[.!?:;]\s+|\bplease\s+|\byou (?:can|could|should|need to|may want to|might want to)\s+)"
+# "run into", "run out", "run 2 took 5s", "run nightly" are prose, not asks.
+RUN_NOUN = r"(?!(?:time|into|out|across|over|away|one|two|three|nightly|daily|weekly|\d)\b)"
 FINAL_ASKS = (
-    ("run", re.compile(ASK_LEAD + r"run\s+(?!time\b)\S", re.IGNORECASE)),
-    ("review", re.compile(ASK_LEAD + r"(?:review|take a look at|have a look at)\s+\S", re.IGNORECASE)),
-    ("answer", re.compile(r"\b(?:let me know (?:if|whether|which|what|how|when)|would you like|do you want|should i|shall i)\b", re.IGNORECASE)),
+    ("run", re.compile(ASK_LEAD + r"run:?\s+" + RUN_NOUN + r"\S", re.IGNORECASE)),
+    ("review", re.compile(ASK_LEAD + r"(?:review|take a look at|have a look at):?\s+(?!apps?\b)\S", re.IGNORECASE)),
+    # Not "let me know if…": it is the most common sign-off and rarely a real request.
+    ("answer", re.compile(r"\b(?:let me know (?:whether|which)|would you like|do you want|should i|shall i)\b", re.IGNORECASE)),
 )
+FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 
 
 @dataclass
@@ -163,6 +170,10 @@ def _command(item: dict[str, Any]) -> str:
     return _clip(lines[0] if lines else "", 120)
 
 
+def _check_key(command: str) -> str:
+    return re.sub(r"^cd \S+ *&& *", "", command)
+
+
 def parse_answer(text: str) -> tuple[str, str, str, bool]:
     """Return (outcome, next_kind, next_text, formatted) from a final answer.
 
@@ -174,7 +185,8 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
     outcome = labels.get("outcome") or labels.get("result")
     step = labels.get("your next step") or labels.get("next step") or labels.get("next")
     if outcome is None:
-        parts = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+        # Code blocks are not prose: `then run ./deploy` in a script is not an ask.
+        parts = [part.strip() for part in re.split(r"\n\s*\n", FENCE.sub("", text)) if part.strip()]
         flat = [" ".join(line.strip(" -*#>") for line in part.splitlines()).strip() for part in parts]
         body = [line for part, line in zip(parts, flat) if not HEADING.fullmatch(part) and not line.endswith(":")]
         last = " ".join(flat[-2:]) if len(flat) > 1 and flat[-2].endswith(":") else flat[-1] if flat else ""
@@ -405,8 +417,10 @@ class RolloutParser:
         command = _command(item)
         exit_code = item.get("exit_code")
         failed = exit_code not in (0, None)
-        if CHECK_COMMAND.search(command):
-            turn.checks = [check for check in turn.checks if check.command != command]
+        if CHECK_COMMAND.match(command, CHECK_PREFIX.match(command).end()):
+            # `cd repo && pytest` and `pytest` are the same check; a later run replaces the earlier result.
+            key = _check_key(command)
+            turn.checks = [check for check in turn.checks if _check_key(check.command) != key]
             turn.checks.append(Check(command, exit_code, at))
             turn.edited_after_check = False
         self._step(at, "command", command, f"exit {exit_code}" if failed else "", "failed" if failed else "done")
@@ -701,7 +715,12 @@ class Sessions:
         self._tails.move_to_end(thread_id)
         while len(self._tails) > MAX_TAILS:
             self._tails.popitem(last=False)
-        state = tail.read()
+        try:
+            state = tail.read()
+        except OSError:
+            # Archived or deleted since the last scan.
+            del self._tails[thread_id]
+            return None
         state.title = self.titles().get(thread_id, state.title)
         state.project = self.project_name(state.cwd)
         return state

@@ -103,10 +103,24 @@ def test_later_check_clears_the_stale_flag_and_formatted_answer_sets_next_step(c
         ("Checked the logs.\n\nLet me take a look at the config next; I reviewed the diff already.",
          ("Checked the logs.", "unknown", "", False)),
         ("Renamed the flag.\n\nI should note the old name still works.", ("Renamed the flag.", "unknown", "", False)),
+        ("Fixed the login bug.\n\nLet me know if you have any questions.", ("Fixed the login bug.", "unknown", "", False)),
+        ("Raised the limit.\n\nOtherwise you'll run into the same timeout on large inputs.", ("Raised the limit.", "unknown", "", False)),
+        ("Benchmarked it.\n\nThe first run failed; run two passed. The benchmark: run 2 took 5s.", ("Benchmarked it.", "unknown", "", False)),
+        ("Scheduled it.\n\nThe pipeline will run nightly, then run cleanup.", ("Scheduled it.", "unknown", "", False)),
+        ("Set up previews.\n\nOnce merged, review apps deploy automatically.", ("Set up previews.", "unknown", "", False)),
+        ("Fixed it.\n\nRun: `make test`", ("Fixed it.", "run", "Run: make test", False)),
+        ("Wrote the deploy script.\n\n```sh\nif ok; then run ./deploy; fi\n```", ("Wrote the deploy script.", "unknown", "", False)),
     ],
 )
 def test_parse_answer(text: str, expected: tuple[str, str, str, bool]) -> None:
     assert parse_answer(text) == expected
+
+
+def test_parse_answer_is_linear_on_blank_lines() -> None:
+    started = time.perf_counter()
+    parse_answer("Done." + "\n" * 50_000 + "Outcome: still found")
+    parse_recap("\n" * 50_000)
+    assert time.perf_counter() - started < 0.5
 
 
 def test_parse_recap() -> None:

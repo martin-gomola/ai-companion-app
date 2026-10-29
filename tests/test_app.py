@@ -68,9 +68,21 @@ def test_inbox_reports_failed_and_unchecked_turns(codex_home: Path) -> None:
                                          command("2026-10-27T10:00:02Z", "uv run pytest", 0), end])
     docs = "0d3e1000-0000-7000-8000-000000000004"
     write_rollout(codex_home, docs, [meta(docs), start, edit("2026-10-27T10:00:01Z", "/w/repo/docs/SYNC.md"), end])
+    search = "0d3e1000-0000-7000-8000-000000000005"
+    write_rollout(codex_home, search, [meta(search), start, command("2026-10-27T10:00:01Z", "uv run pytest -q", 1),
+                                       command("2026-10-27T10:00:02Z", "cd /w/repo && uv run pytest -q", 0),
+                                       command("2026-10-27T10:00:03Z", "rg -n pytest pyproject.toml", 1), end])
     states = {entry["id"]: entry["check_state"] for entry in client(codex_home).get("/api/inbox").json()}
 
-    assert states == {THREAD: "failed", OTHER: "unchecked", SUBAGENT: "", docs: ""}
+    assert states == {THREAD: "failed", OTHER: "unchecked", SUBAGENT: "", docs: "", search: ""}
+
+
+def test_deleted_chat_is_not_found_instead_of_an_error(codex_home: Path) -> None:
+    app = client(codex_home)
+    assert app.get(f"/api/threads/{THREAD}").status_code == 200
+    (codex_home / "sessions/2026/10/27" / f"rollout-2026-10-27T11-03-04-{THREAD}.jsonl").unlink()
+
+    assert app.get(f"/api/threads/{THREAD}").status_code == 404
 
 
 def test_stream_sends_the_current_inbox_first(codex_home: Path) -> None:
