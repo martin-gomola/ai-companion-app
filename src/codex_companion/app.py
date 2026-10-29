@@ -23,7 +23,7 @@ PAGE_POLICY = (
     "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; "
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
-ASSET_TYPES = {"tokens.css": "text/css", "app.css": "text/css", "app.js": "text/javascript"}
+ASSET_TYPES = {"tokens.css": "text/css", "app.css": "text/css", "app.js": "text/javascript", "theme.js": "text/javascript"}
 
 
 def _static(name: str) -> str:

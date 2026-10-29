@@ -66,6 +66,7 @@ def test_serves_page_with_policy_and_only_loopback(codex_home: Path) -> None:
 
     assert page.status_code == 200 and "script-src 'self'" in page.headers["content-security-policy"]
     assert app.get("/assets/app.js").headers["content-type"].startswith("text/javascript")
+    assert app.get("/assets/theme.js").headers["content-type"].startswith("text/javascript")
     assert app.get("/assets/secrets.txt").status_code == 404
     evil = TestClient(create_app(codex_home), base_url="http://evil.example")
     assert evil.get("/").status_code == 400

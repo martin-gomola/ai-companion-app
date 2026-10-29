@@ -357,6 +357,24 @@ $("reminder-toggle").addEventListener("click", () => {
   }
 });
 
+function syncThemeToggle() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  const label = `Switch to ${dark ? "light" : "dark"} theme`;
+  $("theme-toggle").setAttribute("aria-label", label);
+  $("theme-toggle").title = label;
+  $("theme-toggle").querySelector("use").setAttribute("href", dark ? "#i-sun" : "#i-moon");
+}
+
+$("theme-toggle").addEventListener("click", () => {
+  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem("theme", theme); } catch { /* The choice still applies to this page. */ }
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#05060a" : "#eef1f8");
+  syncThemeToggle();
+});
+document.addEventListener("themechange", syncThemeToggle);
+syncThemeToggle();
+
 window.addEventListener("storage", (event) => {
   if (event.key === null || event.key.startsWith("reminder:v1:")) {
     if (threadData) renderThread(threadData);
@@ -628,13 +646,13 @@ if (threadId) {
   $("back").hidden = false;
   $("back").href = inboxStatus ? `/?status=${inboxStatus}` : "/";
   $("back-label").textContent = inboxStatus ? INBOX_FILTERS[inboxStatus].label : "Inbox";
-  $("eyebrow").hidden = true;
-  $("title").textContent = "Loading";
+  $("inbox-title").hidden = true;
+  $("thread-heading").hidden = false;
   connect(`/api/stream?thread=${encodeURIComponent(threadId)}`, "thread", renderThread);
 } else {
   $("inbox-view").hidden = false;
   $("panel-head").hidden = false;
-  if (inboxStatus) $("title").textContent = INBOX_FILTERS[inboxStatus].label;
+  if (inboxStatus) $("inbox-title").textContent = INBOX_FILTERS[inboxStatus].label;
   connect("/api/stream", "inbox", renderInbox);
   const open = params.get("open");
   if (open && board.matches) showPanel(open);

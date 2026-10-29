@@ -17,16 +17,21 @@ Codex controls.
   touch all work; nothing depends on hover.
 - From 900px wide, for example on a separate monitor, the inbox becomes a full-width board (see
   Board). Below 900px it is the list described in Inbox.
-- The page follows the system light or dark appearance. There is no in-page theme switch.
+- The page follows the system light or dark appearance until the user picks one with the sun/moon
+  switch in the header. The choice is stored in this browser and applied before the first paint.
 - iOS patterns are borrowed where they help scanning: large titles, inset grouped lists, segmented
   filters, disclosure rows, and system colors. Phone-only chrome (tab bars, bottom toolbars above a
   home indicator, swipe actions) is not used.
 
 ## Inbox
 
-- A sticky translucent header holds the large "Inbox" title, the live connection state, and a
-  segmented summary: All, Needs you, Working, and New. Each segment shows its count and is also the
-  filter for that status, so the header doubles as the overview. The selected segment is filled.
+- The header is one row: the "Inbox" title (or the active filter's name) on the left, and one glass
+  capsule on the right that groups the live connection state with the theme switch. The product
+  name lives in the window title and footer, not in a separate header line.
+- Directly below sits the segmented summary: All, Needs you, Working, and New. It stays pinned while
+  the list scrolls. Each segment shows its count and is also the filter for that status, so the
+  header doubles as the overview. The selected segment is filled. Segments wrap to a second line
+  rather than break a word.
   Filters are bookmarkable `/?status=` links.
 - The All view is one inset grouped list split into sections, in this order: Needs you, Working,
   New results, then Earlier. Empty sections are omitted. Needs you, Working, and New results show at
@@ -63,7 +68,8 @@ Codex controls.
 
 ## Chat page
 
-- A sticky header with the back link and the live state. Below it, a large title (the chat name)
+- A sticky row with the back link on the left and the same live-state and theme capsule on the
+  right. Below it, a large title (the chat name)
   and a subtitle with the project and the time of the last recorded event.
 - The status card comes first. Its header shows the status glyph and label and the "Open in Codex"
   action, the only filled accent button on the page. Its body depends on state:
@@ -105,7 +111,7 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 
 - Material: Liquid Glass. A fixed, soft ambient backdrop (blue, pink, and mint glows in light;
   deep navy, plum, and teal in dark) sits behind translucent glass layers: lists, cards, summary
-  segments, and capsule controls (back, live state, Close, secondary buttons, chips). Glass uses
+  segments, and capsule controls (back, the live state and theme group, Close, secondary buttons, chips). Glass uses
   backdrop blur and saturation, a bright inner top edge, and a soft drop shadow. Text contrast is
   computed against glass composited over the darkest and lightest backdrop points.
 - Reduced transparency and increased contrast replace glass and backdrop with opaque surfaces;

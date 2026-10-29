@@ -86,7 +86,8 @@ The companion tails those files; it never writes to `~/.codex`.
   sections in that order, then Earlier. A section with more than five chats ends with **Show all**.
   It covers the 30 most recently updated chats, plus older chats from the last 14 days that still
   need you, and hides sub-agent chats. Filtered chat links keep their return scope. The page
-  follows the system light or dark appearance.
+  follows the system light or dark appearance; the sun/moon switch in the header overrides it in
+  this browser.
 - **Board.** From 900px wide, for example on a separate monitor, the inbox becomes a read-only
   board with one column per status. Clicking a card opens the chat in a panel beside the board.
 - **Project labels.** The session's working directory is matched to project roots in Codex's local

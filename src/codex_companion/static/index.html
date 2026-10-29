@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f8">
 <title>Codex companion</title>
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/theme.js"></script>
 <script src="/assets/app.js" defer></script>
 </head>
 <body>
@@ -31,18 +31,23 @@
     <symbol id="i-back" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></symbol>
   </defs>
 </svg>
 <main class="page">
   <div class="bar">
     <a class="back" id="back" href="/" hidden><svg aria-hidden="true"><use href="#i-back"/></svg><span id="back-label">Inbox</span></a>
-    <p class="eyebrow" id="eyebrow">Codex companion</p>
-    <p class="connection" id="connection" data-state="connecting" role="status">
-      <span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
-    </p>
+    <h1 class="bar-title" id="inbox-title">Inbox</h1>
+    <div class="utility">
+      <p class="connection" id="connection" data-state="connecting" role="status">
+        <span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
+      </p>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><svg aria-hidden="true"><use href="#i-moon"/></svg></button>
+    </div>
   </div>
-  <header class="top">
-    <h1 id="title">Inbox</h1>
+  <header class="top" id="thread-heading" hidden>
+    <h1 id="title">Loading</h1>
     <p class="subtitle" id="subtitle" hidden></p>
   </header>
 
@@ -136,7 +141,7 @@
     </section>
   </div>
 
-  <footer class="footer">Read-only · reads <code>~/.codex/sessions</code> on this machine</footer>
+  <footer class="footer">Codex companion · Read-only · reads <code>~/.codex/sessions</code> on this machine</footer>
 </main>
 </body>
 </html>

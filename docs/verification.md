@@ -178,3 +178,15 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - List and chat views at 320, 390, and 430px, 200% text, and the board at 900 and 1440px showed no
   overflow or controls under 44px. With increased contrast emulated, cards rendered opaque with no
   backdrop blur. Reduced transparency and WebKit rendering of backdrop-filter were not emulated.
+
+## Compact header and theme switch on 2026-10-29
+
+- The inbox header is one row (title plus the live and theme capsule) above the summary, which saves
+  about 38px against the previous three-row header at 390px. Rendered the inbox, a filter, and
+  waiting, working, and done chats at 320, 390, and 430px in both themes, 200% text at 320px, and
+  the board and panel at 900 and 1440px: no horizontal overflow and no controls under 44px.
+  Summary labels no longer break mid-word at 320px.
+- In Chromium the switch followed the system with nothing stored, flipped the theme on click and
+  on Enter, kept the choice across a reload and against a system change, and updated its pictogram,
+  accessible name, and `theme-color`. Increased contrast in the dark theme still rendered opaque
+  cards. Safari and VoiceOver were not checked.

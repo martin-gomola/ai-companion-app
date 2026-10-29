@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --color-bg: #eef1f8;
   --color-surface: #ffffff;
   --color-surface-pressed: rgb(120 120 144 / 0.14);
@@ -46,7 +46,7 @@
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
-  --text-xl: 2rem;
+  --text-xl: 1.75rem;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -82,56 +82,51 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #05060a;
-    --color-surface: #1c1c1e;
-    --color-surface-pressed: rgb(255 255 255 / 0.06);
-    --color-fill: rgb(255 255 255 / 0.08);
-    --color-separator: rgb(255 255 255 / 0.12);
-    --color-border-strong: #8d8d93;
-    --color-text: #ffffff;
-    --color-text-muted: #b4b4b9;
-    --color-accent: #62b1ff;
-    --color-on-accent: #000000;
-    --bg-ambient:
-      radial-gradient(48rem 32rem at 0% 0%, #1b2a63, transparent 70%),
-      radial-gradient(40rem 30rem at 100% 10%, #3b1d4f, transparent 70%),
-      radial-gradient(56rem 36rem at 50% 100%, #0e3a30, transparent 70%),
-      #05060a;
-    --glass-bg: rgb(44 44 52 / 0.6);
-    --glass-bar: rgb(44 44 52 / 0.72);
-    --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.14), inset 0 0 0 1px rgb(255 255 255 / 0.07);
-    --glass-shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
-    --bar-fade: linear-gradient(to bottom, rgb(5 6 10 / 0.92) 30%, rgb(5 6 10 / 0));
-    --shadow-accent: 0 6px 18px rgb(98 177 255 / 0.22);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #05060a;
+  --color-surface: #1c1c1e;
+  --color-surface-pressed: rgb(255 255 255 / 0.06);
+  --color-fill: rgb(255 255 255 / 0.08);
+  --color-separator: rgb(255 255 255 / 0.12);
+  --color-border-strong: #8d8d93;
+  --color-text: #ffffff;
+  --color-text-muted: #b4b4b9;
+  --color-accent: #62b1ff;
+  --color-on-accent: #000000;
+  --bg-ambient:
+    radial-gradient(48rem 32rem at 0% 0%, #1b2a63, transparent 70%),
+    radial-gradient(40rem 30rem at 100% 10%, #3b1d4f, transparent 70%),
+    radial-gradient(56rem 36rem at 50% 100%, #0e3a30, transparent 70%),
+    #05060a;
+  --glass-bg: rgb(44 44 52 / 0.6);
+  --glass-bar: rgb(44 44 52 / 0.72);
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.14), inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  --glass-shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+  --bar-fade: linear-gradient(to bottom, rgb(5 6 10 / 0.92) 30%, rgb(5 6 10 / 0));
+  --shadow-accent: 0 6px 18px rgb(98 177 255 / 0.22);
 
-    --color-waiting: #ffa53a;
-    --color-waiting-fill: #ff9f0a;
-    --color-waiting-soft: #3a2a14;
-    --color-working: #dd9eff;
-    --color-working-fill: #bf5af2;
-    --color-new: #4cd471;
-    --color-new-fill: #30d158;
-    --color-danger: #ff7d75;
-    --color-danger-fill: #ff453a;
-    --color-history-fill: #8d8d93;
-    --color-on-status: #000000;
-  }
+  --color-waiting: #ffa53a;
+  --color-waiting-fill: #ff9f0a;
+  --color-waiting-soft: #3a2a14;
+  --color-working: #dd9eff;
+  --color-working-fill: #bf5af2;
+  --color-new: #4cd471;
+  --color-new-fill: #30d158;
+  --color-danger: #ff7d75;
+  --color-danger-fill: #ff453a;
+  --color-history-fill: #8d8d93;
+  --color-on-status: #000000;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --glass-bg: rgb(255 255 255 / 0.9); --glass-bar: rgb(255 255 255 / 0.94); }
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  @media (prefers-color-scheme: dark) {
-    :root { --glass-bg: rgb(36 36 42 / 0.94); --glass-bar: rgb(36 36 42 / 0.96); }
-  }
+  :root, :root[data-theme="light"] { --glass-bg: rgb(255 255 255 / 0.9); --glass-bar: rgb(255 255 255 / 0.94); }
+  :root[data-theme="dark"] { --glass-bg: rgb(36 36 42 / 0.94); --glass-bar: rgb(36 36 42 / 0.96); }
 }
 
 /* Reduced transparency and increased contrast replace glass with opaque surfaces. */
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :root {
+  :root, :root[data-theme] {
     --bg-ambient: var(--color-bg);
     --glass-bg: var(--color-surface);
     --glass-bar: var(--color-surface);
@@ -140,5 +135,5 @@
   }
 }
 @media (prefers-contrast: more) {
-  :root { --color-separator: var(--color-border-strong); --glass-edge: inset 0 0 0 1px var(--color-border-strong); }
+  :root, :root[data-theme] { --color-separator: var(--color-border-strong); --glass-edge: inset 0 0 0 1px var(--color-border-strong); }
 }
