@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,6 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "images"
-PORT = 8799
 NOW = datetime.now(UTC)
 
 
@@ -50,6 +50,10 @@ class Chat:
         self._add("event_msg", {"type": "task_started", "turn_id": f"t{self.turn}"})
         self._item({"type": "UserMessage", "content": [{"type": "text", "text": prompt}]})
         return self
+
+    def reply(self, question: str, answer: str) -> Chat:
+        replies = json.dumps([{"question": question, "answer": answer}])
+        return self.ask(f"<send_user_message_question_reply>{replies}</send_user_message_question_reply>")
 
     def think(self, summary: str) -> Chat:
         self._item({"type": "Reasoning", "summary_text": [summary]})
@@ -113,6 +117,16 @@ def demo_chats() -> list[Chat]:
         .edit("backend/search/ranking.py")
         .run("uv run pytest -q")
         .answer("**Outcome:** Exact name matches now rank first; all 48 tests pass.\n\n"
+                "**Next step:** answer: choose how ties are ordered.",
+                {"title": "When two plants score the same, order them by popularity or alphabetically?",
+                 "options": ["By popularity", "Alphabetically"]})
+        .reply("When two plants score the same, order them by popularity or alphabetically?", "By popularity")
+        .think("**Adding a popularity tie-break**")
+        .edit("backend/search/tiebreak.py", "backend/search/ranking.py", "docs/SEARCH.md")
+        .run("uv run pytest -q")
+        .answer("**Outcome:** Ties now fall back to popularity; all 51 tests pass.\n\n"
+                "**Recap:** Search ranks exact name prefixes first and breaks ties by popularity, "
+                "with tests for both and the rules written up in docs/SEARCH.md.\n\n"
                 "**Next step:** none."),
         Chat(3, "Fix recipe import", "recipe-box", 180)
         .ask("Recipe import fails on the new CSV header.")
@@ -125,15 +139,23 @@ def demo_chats() -> list[Chat]:
         .think("**Reading the Vite 6 migration notes**")
         .edit("frontend/package.json", "frontend/vite.config.ts")
         .run("npm run build"),
-        Chat(5, "Write offline sync guide", "weather-widget", 60 * 30)
+        Chat(5, "Write offline sync guide", "weather-widget", 150)
         .ask("Document how the outbox handles conflicts.")
         .edit("docs/SYNC.md")
         .answer("**Outcome:** Added docs/SYNC.md with the conflict flow.\n\n**Next step:** none."),
     ]
 
 
-def wait_for(url: str) -> None:
+def free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def wait_for(url: str, server: subprocess.Popen) -> None:
     for _ in range(40):
+        if server.poll() is not None:
+            sys.exit("The companion server exited before it was ready")
         try:
             urllib.request.urlopen(url, timeout=1)
             return
@@ -151,28 +173,36 @@ def main() -> None:
             chat.write(home)
         (home / "session_index.jsonl").write_text(
             "".join(json.dumps({"id": c.id, "thread_name": c.title}) + "\n" for c in chats), encoding="utf-8")
+        port = free_port()
         server = subprocess.Popen([str(ROOT / ".venv" / "bin" / "codex-companion"), "serve",
-                                   "--port", str(PORT), "--codex-home", str(home)])
+                                   "--port", str(port), "--codex-home", str(home)])
         try:
-            base = f"http://127.0.0.1:{PORT}"
-            wait_for(base + "/")
+            base = f"http://127.0.0.1:{port}"
+            wait_for(base + "/", server)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(channel="chrome")
-                page = browser.new_page(viewport={"width": 420, "height": 900}, device_scale_factor=2,
-                                        color_scheme="light")
-                shots = (("inbox", "/"), ("chat-waiting", f"/?thread={chats[0].id}"),
-                         ("chat-done", f"/?thread={chats[1].id}"))
-                # Every image gets the tallest page's height so the README images line up.
-                heights = []
-                for _, path in shots:
+                # Reduced motion so no capture lands mid-transition.
+                desk = browser.new_page(viewport={"width": 1440, "height": 960}, device_scale_factor=2,
+                                        color_scheme="light", reduced_motion="reduce")
+                desk.goto(f"{base}/?open={chats[1].id}")
+                desk.wait_for_timeout(1500)
+                desk.screenshot(path=str(OUT / "board.png"))
+                print("wrote docs/images/board.png")
+
+                shots = (("inbox", "/", False), ("chat-waiting", f"/?thread={chats[0].id}", False),
+                         ("chat-done", f"/?thread={chats[1].id}", True))
+                for name, path, files in shots:
+                    # A fresh context per shot: opening a chat marks its result as seen.
+                    page = browser.new_page(viewport={"width": 420, "height": 900}, device_scale_factor=2,
+                                            color_scheme="dark", reduced_motion="reduce")
                     page.goto(base + path)
                     page.wait_for_timeout(1200)
-                    heights.append(page.evaluate("document.documentElement.scrollHeight"))
-                page.set_viewport_size({"width": 420, "height": max(heights)})
-                for name, path in shots:
-                    page.goto(base + path)
-                    page.wait_for_timeout(1200)
+                    if files:
+                        page.locator("#session-files-summary").click()
+                        page.wait_for_timeout(300)
+                    page.set_viewport_size({"width": 420, "height": page.evaluate("document.documentElement.scrollHeight")})
                     page.screenshot(path=str(OUT / f"{name}.png"))
+                    page.close()
                     print(f"wrote docs/images/{name}.png")
                 browser.close()
         finally:

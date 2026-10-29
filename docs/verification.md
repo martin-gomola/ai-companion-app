@@ -301,3 +301,13 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   Agent meta line; a `## My request: stop` answer rendered as `My request: stop`. At 430px light
   and 320px dark there was no overflow or control under 44px; the purple role is 5.0:1 light and
   at least 4.5:1 dark; the board views passed; 31 tests pass.
+
+## README screenshots after the redesign on 2026-10-29
+
+- `make screenshots` now renders a 1440px light board with the Fix plant search ranking chat open,
+  plus 420px dark captures of the inbox, a waiting chat, and a finished chat with Files changed
+  expanded. The demo chats cover all four inbox sections, the reminder bell, a recap, files from
+  two turns, and decisions by you and by the agent.
+- The script binds a free port and exits if its server stops. A port already in use made the
+  earlier run capture a different local app. Each phone capture uses a fresh browser context,
+  because opening a chat marks its result as seen.

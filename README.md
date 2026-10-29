@@ -11,9 +11,11 @@
 [Start the companion](#start-the-companion) · [Commands](#commands-you-will-use) ·
 [How it works](#how-it-works) · [Guides](#guides)
 
-<img src="docs/images/inbox.png" width="260" alt="Inbox with a status summary, then chats that need you, are working, and have new results">
-<img src="docs/images/chat-waiting.png" width="260" alt="Chat waiting for an answer, with the question, its options, and the checks that ran">
-<img src="docs/images/chat-done.png" width="260" alt="Finished chat with its outcome, a failed then passing test run, and an agent decision">
+<img src="docs/images/board.png" width="800" alt="Wide window: the inbox list beside an open chat showing its recap, latest turn, checks, and your and the agent's decisions">
+
+<img src="docs/images/inbox.png" width="260" align="top" alt="Dark theme inbox with status filters and sections for chats that need you, are working, and have new results">
+<img src="docs/images/chat-waiting.png" width="260" align="top" alt="Chat waiting for an answer, with the question, its options, a reminder bell, and the checks that ran">
+<img src="docs/images/chat-done.png" width="260" align="top" alt="Finished chat with a recap of the whole chat, decisions, and every file the chat changed">
 
 <sub>Screenshots use made-up demo chats from <code>make screenshots</code>, not real session data.</sub>
 
