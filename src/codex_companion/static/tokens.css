@@ -69,8 +69,9 @@
   --motion-enter: 240ms;
   --motion-pulse: 2s;
   --size-tone: 26px;
-  /* Tint strengths keep every text role at 4.5:1 on the tinted surface. */
-  --tint-status: 6%;
+  /* Tint strengths keep text at 4.5:1: the status bar holds only its own ink; soft tints hold any ink. */
+  --tint-status: 8%;
+  --tint-soft: 6%;
   --tint-tone: 14%;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }

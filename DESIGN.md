@@ -64,7 +64,7 @@ Codex controls.
   panel takes most of the width (content capped at the reading width) and the board collapses into
   the phone list beside it: a 320–400px column with sections stacked, empty sections omitted, and
   its own scroll. The panel shows the chat page content under its own title, subtitle, and Close
-  button. The open chat is marked current with a tinted row and an accent edge, scrolled into view.
+  button. The open chat is marked current with a 6% accent-tinted row and an accent title, scrolled into view.
   Closing the panel restores the columns. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
   Escape closes it and returns focus to the card. Modified clicks (new tab or window) still open the
   full chat page. Narrowing the window below 1280px with a panel open switches to the chat page.
@@ -129,9 +129,13 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 - Pictograms carry the structure so a long chat stays scannable. Every section title starts with a
   tinted icon chip in its role color: What happened (blue, message), Changes and checks (green,
   terminal), Decisions (purple, branch), More (grey); inbox sections use their status color and
-  glyph. Disclosure rows lead with a muted icon. The agent's decision has a purple edge and label.
-- The status card reads like an alert: a 4px left edge in the status color and, for needs you,
-  working, and stopped, a 6% tint of that color. 6% keeps every text role at 4.5:1. On phones,
+  glyph. Disclosure rows lead with a muted icon. The agent's decision sits in a 6% purple-tinted
+  block under a purple label.
+- No colored side stripes on cards, rows, or quotes: that idiom reads as generic generated UI. The
+  status card is a small window instead: its title bar (glyph, status, Open in Codex) carries an 8%
+  tint of the status color, a hairline in that color separates the plain body, and the card border
+  takes the status color. The bar holds only its own status ink, which stays at 4.5:1 at 8%; tints
+  that can hold any status ink stay at 6%. On phones,
   disclosure-row values move under their label instead of squeezing it.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
   Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.

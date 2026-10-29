@@ -231,3 +231,12 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - With motion allowed, the needs-you glyph, the live dot, and the chat sections animate; with
   reduced motion emulated, no animations run and every section is fully opaque. Phone, 200% text,
   and board views showed no overflow or controls under 44px.
+
+## Status title bar instead of side stripes on 2026-10-29
+
+- The status card's left edge and full-card tint are replaced by a tinted title bar, a status-colored
+  hairline under it, and a status-colored card border; the agent decision and the board's open row
+  lose their side stripes for 6% tinted blocks. Computed contrast: light waiting ink on the 8% bar
+  4.52:1, waiting ink and muted text on the 6% accent row at least 4.5:1, dark accent on the dark
+  row at least 4.5:1; the delivery validator passed. Phone, 200% text, and board views in both
+  themes showed no overflow or controls under 44px; 31 tests pass.
