@@ -1,7 +1,7 @@
 """Minimal stdio MCP server for the Codex plugin: decision logging.
 
 `log_decision` stores nothing itself. Codex records every MCP call in the chat's rollout file,
-and the companion reads decisions back from there, so they always belong to the right chat.
+and Your Turn reads decisions back from there, so they always belong to the right chat.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import json
 import sys
 from typing import Any, TextIO
 
-from codex_companion import __version__
+from yourturn import __version__
 
 PROTOCOL_VERSION = "2025-06-18"
 
@@ -18,7 +18,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "log_decision",
         "description": (
-            "Record a decision you made while working, so the user can see it on the companion's decision map. "
+            "Record a decision you made while working, so the user can see it on Your Turn's decision map. "
             "Call it when you pick between real alternatives (approach, library, scope, fix), not for routine steps."
         ),
         "inputSchema": {
@@ -52,7 +52,7 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
         reply["result"] = {
             "protocolVersion": params.get("protocolVersion", PROTOCOL_VERSION),
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "codex-companion", "version": __version__},
+            "serverInfo": {"name": "your-turn", "version": __version__},
         }
     elif method == "ping":
         reply["result"] = {}

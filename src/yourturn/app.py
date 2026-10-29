@@ -1,4 +1,4 @@
-"""Loopback-only companion: an inbox of Codex chats and a per-turn summary of each, keyed by thread id."""
+"""Loopback-only Your Turn server: an inbox of Codex chats and a per-turn summary of each, keyed by thread id."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from codex_companion.rollout import THREAD_ID, Sessions
+from yourturn.rollout import THREAD_ID, Sessions
 
 LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 POLL_SECONDS = 1.0
@@ -27,13 +27,13 @@ ASSET_TYPES = {".css": "text/css", ".js": "text/javascript"}
 
 
 def _static(name: str) -> str:
-    return files("codex_companion").joinpath("static", name).read_text(encoding="utf-8")
+    return files("yourturn").joinpath("static", name).read_text(encoding="utf-8")
 
 
 def create_app(
     codex_home: Path, poll_seconds: float = POLL_SECONDS, should_stop: Callable[[], bool] = lambda: False
 ) -> FastAPI:
-    app = FastAPI(title="Codex companion", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Your Turn", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOOPBACK_HOSTS)
     sessions = Sessions(codex_home)
 
@@ -58,7 +58,7 @@ def create_app(
     @app.get("/assets/{name}")
     def asset(name: str) -> Response:
         media_type = ASSET_TYPES.get(Path(name).suffix)
-        if media_type is None or name not in {entry.name for entry in files("codex_companion").joinpath("static").iterdir()}:
+        if media_type is None or name not in {entry.name for entry in files("yourturn").joinpath("static").iterdir()}:
             raise HTTPException(status_code=404)
         return Response(_static(name), media_type=media_type)
 

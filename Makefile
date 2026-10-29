@@ -1,10 +1,10 @@
 PORT ?= 8787
-STATE_DIR ?= $(HOME)/.codex-companion
+STATE_DIR ?= $(HOME)/.your-turn
 PID_FILE := $(STATE_DIR)/server.pid
 LOG_FILE := $(STATE_DIR)/server.log
 URL := http://127.0.0.1:$(PORT)
-MARKETPLACE := codex-companion-local
-PLUGIN := codex-companion@$(MARKETPLACE)
+MARKETPLACE := your-turn-local
+PLUGIN := your-turn@$(MARKETPLACE)
 
 .PHONY: up down restart status logs mcp test screenshots
 
@@ -17,20 +17,20 @@ up:
 		echo "Port $(PORT) is in use by another process. Try: make up PORT=8788"; exit 1; \
 	fi; \
 	uv sync --quiet || exit 1; \
-	nohup .venv/bin/codex-companion serve --port $(PORT) >"$(LOG_FILE)" 2>&1 & \
+	nohup .venv/bin/yourturn serve --port $(PORT) >"$(LOG_FILE)" 2>&1 & \
 	echo $$! >"$(PID_FILE)"; \
 	for _ in 1 2 3 4 5 6 7 8 9 10; do \
-		curl -fsS -o /dev/null "$(URL)/" 2>/dev/null && { echo "Codex companion on $(URL)"; exit 0; }; \
+		curl -fsS -o /dev/null "$(URL)/" 2>/dev/null && { echo "Your Turn on $(URL)"; exit 0; }; \
 		sleep 0.5; \
 	done; \
-	echo "Companion did not start. Last log lines:"; tail -n 20 "$(LOG_FILE)"; exit 1
+	echo "Your Turn did not start. Last log lines:"; tail -n 20 "$(LOG_FILE)"; exit 1
 
 down:
 	@if [ -f "$(PID_FILE)" ] && pid="$$(cat "$(PID_FILE)")" && kill "$$pid" 2>/dev/null; then \
 		for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$$pid" 2>/dev/null || break; sleep 0.3; done; \
-		echo "Stopped companion (pid $$pid)"; \
+		echo "Stopped Your Turn (pid $$pid)"; \
 	else \
-		echo "Companion is not running"; \
+		echo "Your Turn is not running"; \
 	fi; \
 	rm -f "$(PID_FILE)"
 

@@ -22,7 +22,7 @@ from conftest import (
     write_rollout,
 )
 
-from codex_companion.rollout import RolloutParser, RolloutTail, Sessions, parse_answer, parse_recap
+from yourturn.rollout import RolloutParser, RolloutTail, Sessions, parse_answer, parse_recap
 
 
 def test_folds_a_turn_into_a_summary_steps_and_decisions(codex_home: Path) -> None:
@@ -108,7 +108,7 @@ def test_inbox_skips_subagents_and_reads_only_the_tail(codex_home: Path, monkeyp
     assert (inbox[THREAD]["status"], inbox[THREAD]["question"], inbox[THREAD]["title"]) == ("waiting", "Ship now?", "Fix login")
     assert inbox[OTHER]["status"] == "working"
 
-    monkeypatch.setattr("codex_companion.rollout.INBOX_TAIL_BYTES", 200)
+    monkeypatch.setattr("yourturn.rollout.INBOX_TAIL_BYTES", 200)
     path = sessions.find(THREAD)
     assert path is not None
     append(path, event("2026-10-27T10:05:00Z", {"type": "task_started"}))
@@ -139,7 +139,7 @@ def test_attention_identity_survives_usage_updates_and_tail_reads(codex_home: Pa
     path = sessions.find(THREAD)
     assert path is not None
     append(path, event("2026-10-27T10:05:00Z", {"type": "token_count", "info": {"total_token_usage": {"total_tokens": 999}}}))
-    monkeypatch.setattr("codex_companion.rollout.INBOX_TAIL_BYTES", 2000)
+    monkeypatch.setattr("yourturn.rollout.INBOX_TAIL_BYTES", 2000)
     assert sessions.inbox()[0]["attention_key"] == key
     assert sessions.state(THREAD).attention_key == key
 

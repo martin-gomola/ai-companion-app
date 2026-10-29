@@ -155,7 +155,7 @@ def _command(item: dict[str, Any]) -> str:
 def parse_answer(text: str) -> tuple[str, str, str, bool]:
     """Return (outcome, next_kind, next_text, formatted) from a final answer.
 
-    Answers following the companion format carry `Outcome:` and `Next step:` lines; anything else
+    Answers following the Your Turn handoff format carry `Outcome:` and `Next step:` lines; anything else
     falls back to the first prose paragraph, and to an inferred `answer` step when the reply opens
     with a request or ends with a question.
     """

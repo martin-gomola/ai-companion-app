@@ -6,7 +6,7 @@ Active local design contract, revised 2026-10-29. It replaces the earlier projec
 with an attention list adapted from iOS grouped lists. The earlier direction is recorded in
 [docs/verification.md](./docs/verification.md).
 
-Codex Companion helps an engineer who runs several Codex chats see which chats need them, what each
+Your Turn helps an engineer who runs several Codex chats see which chats need them, what each
 one produced, and what to do next, then open that chat in Codex. It is a read-only local web page,
 usually open in a narrow browser window beside the Codex app. It is not a native app and has no
 Codex controls.
@@ -104,9 +104,11 @@ Codex controls.
   filters), and Session details. Files changed is the session's final set of edited files, most
   recently changed first, without per-turn history (long chats made turn lists noise); it appears
   only when earlier turns edited files, because Changes and checks already lists the latest turn's
-  files. Session details shows the latest reported
-  token totals and last-request usage, model and effort from the latest turn, provider, branch, client, working directory, and report
-  time. Counts come from the latest token_count snapshot, never a sum; cached input and reasoning
+  files. Session details groups usage, runtime, workspace, and turn facts, with one muted pictogram
+  per group. The disclosure summary keeps the session token total and last-request context in view.
+  Details include the latest reported token totals and last-request usage, model and effort from the
+  latest turn, provider, branch, client, working directory, and report time. Counts come from the
+  latest token_count snapshot, never a sum; cached input and reasoning
   are included in their parent counts; context is the last request total relative to the model
   window. Unknowns stay "Not reported" and a reported zero stays zero. Usage is telemetry, not a
   bill or an account quota; rate-limit snapshots are not shown as current account limits.
@@ -116,10 +118,10 @@ Codex controls.
 
 ## Visual system
 
-`src/codex_companion/static/tokens.css` owns every color, type size, spacing, radius, and motion
+`src/yourturn/static/tokens.css` owns every color, type size, spacing, radius, and motion
 value; `app.css` only consumes tokens. No UI library, remote font, or image dependency.
 
-- Palette: the companion sits next to Codex, so neutrals use the Codex catalog themes: GitHub
+- Palette: Your Turn sits next to Codex, so neutrals use the Codex catalog themes: GitHub
   Light (`#f6f8fa` page, `#ffffff` surfaces) and VS Code+ (`#171717` page, `#1e1e1e` surfaces).
   The accent is Slido Forest Green `#198038` (Slido Brand Guidelines 1.0): accent text in light
   and every filled control with white text (5.02:1). The guide has no dark theme, so dark accent

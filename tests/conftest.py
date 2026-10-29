@@ -40,7 +40,7 @@ RECORDS = [
     item("2026-10-27T10:03:07Z", {"type": "Reasoning", "summary_text": ["**Inspecting auth flow**"]}),
     command("2026-10-27T10:03:08Z", "uv run pytest -q", 1),
     edit("2026-10-27T10:03:09Z", "/w/repo/auth.py"),
-    item("2026-10-27T10:03:10Z", {"type": "McpToolCall", "server": "codex-companion", "tool": "log_decision", "status": "completed",
+    item("2026-10-27T10:03:10Z", {"type": "McpToolCall", "server": "your-turn", "tool": "log_decision", "status": "completed",
                                   "arguments": {"question": "Where to fix?", "options": ["Middleware", "Handler"], "chosen": "Handler", "reason": "Smaller change"}}),
     item("2026-10-27T10:03:11Z", {"type": "AgentMessage", "phase": "final_answer", "content": [{"type": "Text", "text": "Need input. More text."}],
                                   "questions": [{"title": "Ship now?", "options": ["Yes", "No"]}]}),

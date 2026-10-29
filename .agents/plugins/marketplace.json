@@ -1,11 +1,11 @@
 {
-  "name": "codex-companion-local",
+  "name": "your-turn-local",
   "interface": {
-    "displayName": "Codex Companion - LOCAL"
+    "displayName": "Your Turn - LOCAL"
   },
   "plugins": [
     {
-      "name": "codex-companion",
+      "name": "your-turn",
       "source": {
         "source": "local",
         "path": "./plugin"

@@ -71,7 +71,7 @@ class Chat:
 
     def decide(self, question: str, options: list[str], chosen: str, reason: str) -> Chat:
         arguments = {"question": question, "options": options, "chosen": chosen, "reason": reason}
-        self._item({"type": "McpToolCall", "server": "codex-companion", "tool": "log_decision",
+        self._item({"type": "McpToolCall", "server": "your-turn", "tool": "log_decision",
                     "status": "completed", "arguments": arguments})
         return self
 
@@ -198,7 +198,7 @@ def free_port() -> int:
 def wait_for(url: str, server: subprocess.Popen) -> None:
     for _ in range(40):
         if server.poll() is not None:
-            sys.exit("The companion server exited before it was ready")
+            sys.exit("Your Turn server exited before it was ready")
         try:
             urllib.request.urlopen(url, timeout=1)
             return
@@ -217,7 +217,7 @@ def main() -> None:
         (home / "session_index.jsonl").write_text(
             "".join(json.dumps({"id": c.id, "thread_name": c.title}) + "\n" for c in chats), encoding="utf-8")
         port = free_port()
-        server = subprocess.Popen([str(ROOT / ".venv" / "bin" / "codex-companion"), "serve",
+        server = subprocess.Popen([str(ROOT / ".venv" / "bin" / "yourturn"), "serve",
                                    "--port", str(port), "--codex-home", str(home)])
         try:
             base = f"http://127.0.0.1:{port}"
@@ -245,7 +245,7 @@ def main() -> None:
                     page.close()
                     print(f"wrote docs/images/{name}.png")
 
-                # The companion forbids framing, so the in-app browser pane shows a capture of it instead.
+                # Your Turn forbids framing, so the in-app browser pane shows a capture of it instead.
                 pane = browser.new_page(viewport={"width": 420, "height": 700}, device_scale_factor=2,
                                         color_scheme="light", reduced_motion="reduce")
                 pane.goto(f"{base}/?thread={chats[0].id}")

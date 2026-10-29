@@ -8,8 +8,8 @@ from pathlib import Path
 from conftest import OTHER, SUBAGENT, THREAD, event, item, meta, write_rollout
 from fastapi.testclient import TestClient
 
-from codex_companion.app import create_app
-from codex_companion.mcp import serve
+from yourturn.app import create_app
+from yourturn.mcp import serve
 
 
 def client(codex_home: Path) -> TestClient:

@@ -1,14 +1,14 @@
 {
   "mcpServers": {
-    "codex-companion": {
+    "your-turn": {
       "type": "stdio",
       "command": "bash",
       "args": [
         "-lc",
-        "repo=\"${CODEX_COMPANION_REPO:-$HOME/dev/ai-companion-app}\"; cd \"$repo\" 2>/dev/null || { echo \"codex-companion not found at $repo\" >&2; exit 1; }; exec uv run --quiet codex-companion mcp"
+        "repo=\"${YOUR_TURN_REPO:-$HOME/dev/your-turn}\"; cd \"$repo\" 2>/dev/null || { echo \"your-turn not found at $repo\" >&2; exit 1; }; exec uv run --quiet yourturn mcp"
       ],
       "enabled": true,
-      "note": "Runs from a repo checkout. Defaults to $HOME/dev/ai-companion-app; set CODEX_COMPANION_REPO to override."
+      "note": "Runs from a repo checkout. Defaults to $HOME/dev/your-turn; set YOUR_TURN_REPO to override."
     }
   }
 }

@@ -77,7 +77,7 @@ function syncSpin(use) {
 
 const ROW_ICONS = {
   "files-summary": "i-edit", "session-files-summary": "i-edit", "decision-history-summary": "i-decision", "earlier-summary": "i-turn",
-  "activity-summary": "i-thinking", "session-summary": "i-agent",
+  "activity-summary": "i-thinking", "session-summary": "i-session", "tools-summary": "i-tool",
 };
 
 function tone(name, kind) {
@@ -304,7 +304,7 @@ function renderInbox(chats) {
   }
   if (focusedHref) [...$("sections").querySelectorAll("a")].find((link) => link.getAttribute("href") === focusedHref)?.focus({ preventScroll: true });
   const needs = groups.get("waiting").length;
-  document.title = needs ? `(${needs}) Codex companion` : "Codex companion";
+  document.title = needs ? `(${needs}) Your Turn` : "Your Turn";
 }
 
 // Thread
@@ -323,28 +323,48 @@ function renderSessionInfo(thread, turn) {
     hasContext ? `${Math.round(last.total_tokens / contextWindow * 100)}% context` : "",
   ].filter(Boolean).join(" · ");
   rowLabel("session-summary", "Session details", brief);
-  const labels = {
-    input_tokens: "Input", cached_input_tokens: "Cached input (included in input)",
-    cache_write_input_tokens: "Cache-write input", output_tokens: "Output",
-    reasoning_output_tokens: "Reasoning (included in output)", total_tokens: "Session total",
+  const usageLabels = {
+    total_tokens: "Session total", input_tokens: "Input", output_tokens: "Output",
+    cached_input_tokens: "Cached input (included in input)", cache_write_input_tokens: "Cache-write input",
+    reasoning_output_tokens: "Reasoning (included in output)",
   };
-  const facts = Object.entries(labels).filter(([key]) => Object.hasOwn(usage, key)).map(([key, label]) => [label, tokenCount(usage[key])]);
-  facts.push(
-    ["Project", projectName(thread)],
-    ["Last request tokens", tokenCount(last.total_tokens)],
-    ["Reported context window", contextWindow > 0 ? tokenCount(contextWindow) : "Not reported"],
-    ["Model (latest turn)", thread.model], ["Reasoning effort", thread.reasoning_effort],
-    ["Session provider", thread.model_provider], ["Recorded Git branch", thread.git_branch],
-    ["Session client", thread.cli_version], ["Working directory", thread.cwd],
-    ["Turn", turn?.index ? String(turn.index) : ""],
-  );
-  if (thread.token_usage_at && !Number.isNaN(new Date(thread.token_usage_at).getTime())) facts.push(["Totals reported", new Date(thread.token_usage_at).toLocaleString()]);
-  $("session-facts").replaceChildren(...facts.filter(([, value]) => value).map(([label, value]) => {
-    const field = el("div");
-    field.append(el("dt", "", label), el("dd", "", value));
-    return field;
+  const groups = [
+    {
+      label: "Usage", icon: "i-usage",
+      facts: Object.entries(usageLabels).filter(([key]) => Object.hasOwn(usage, key)).map(([key, label]) => [label, tokenCount(usage[key])]),
+    },
+    {
+      label: "Runtime", icon: "i-runtime",
+      facts: [["Model (latest turn)", thread.model], ["Reasoning effort", thread.reasoning_effort], ["Session provider", thread.model_provider], ["Session client", thread.cli_version]],
+    },
+    {
+      label: "Workspace", icon: "i-workspace",
+      facts: [["Project", projectName(thread)], ["Recorded Git branch", thread.git_branch], ["Working directory", thread.cwd]],
+    },
+    {
+      label: "Turn", icon: "i-turn",
+      facts: [
+        ["Turn", turn?.index ? String(turn.index) : ""], ["Last request tokens", tokenCount(last.total_tokens)],
+        ["Reported context window", contextWindow > 0 ? tokenCount(contextWindow) : "Not reported"],
+        ["Totals reported", thread.token_usage_at && !Number.isNaN(new Date(thread.token_usage_at).getTime()) ? new Date(thread.token_usage_at).toLocaleString() : ""],
+      ],
+    },
+  ];
+  $("session-facts").replaceChildren(...groups.flatMap(({ label, icon: iconName, facts }) => {
+    const entries = facts.filter(([, value]) => value);
+    if (!entries.length) return [];
+    const heading = el("h3", "session-group-title", label);
+    heading.prepend(icon(iconName));
+    const list = el("dl", "session-facts");
+    list.append(...entries.map(([name, value]) => {
+      const field = el("div");
+      field.append(el("dt", "", name), el("dd", "", value));
+      return field;
+    }));
+    const group = el("section", "session-group");
+    group.append(heading, list);
+    return [group];
   }));
-  $("session-note").textContent = Object.keys(usage).length ? "Reported session totals accumulate across requests. Cached input is included in input; reasoning is included in output. Context uses the last reported request and model window. Branch and client come from session metadata." : "Cumulative session usage has not been reported for this chat.";
 }
 
 function setStatusText(content, command = false) {
@@ -590,6 +610,26 @@ function renderEarlier(turns) {
   }));
 }
 
+function renderToolUsage(thread) {
+  const tools = new Map();
+  for (const step of thread.steps) {
+    if (step.kind === "tool") tools.set(step.title, (tools.get(step.title) || 0) + 1);
+  }
+  const calls = [...tools.values()].reduce((total, count) => total + count, 0);
+  $("tools-wrap").hidden = tools.size === 0;
+  rowLabel("tools-summary", "MCP tools", `${calls} ${calls === 1 ? "call" : "calls"}`);
+  const toolRows = [...tools].map(([name, count]) => {
+    const [server, tool] = name.split(" · ");
+    const item = el("li", "usage-item");
+    const label = el("span", "usage-label");
+    if (tool) label.append(el("span", "usage-name", tool), el("span", "usage-server", server));
+    else label.append(el("span", "usage-name", name));
+    item.append(label, el("span", "usage-total", `${count} ${count === 1 ? "call" : "calls"}`));
+    return item;
+  });
+  $("mcp-tools").replaceChildren(...toolRows);
+}
+
 function renderTimeline(thread) {
   const steps = thread.steps
     .filter((step) => filter === "all" || KEY_KINDS.has(step.kind) || step.status !== "done")
@@ -621,7 +661,7 @@ function renderThread(thread) {
   if (!thread) {
     threadData = null;
     title.textContent = "Chat not found";
-    if (threadId) document.title = "Chat not found · Codex companion";
+    if (threadId) document.title = "Chat not found · Your Turn";
     subtitle.hidden = true;
     $("status-card").dataset.status = "idle";
     $("status-icon").setAttribute("href", "#i-alert");
@@ -636,7 +676,7 @@ function renderThread(thread) {
   threadData = thread;
   const turn = thread.turns[thread.turns.length - 1];
   title.textContent = chatName(thread);
-  if (threadId) document.title = `${chatName(thread)} · Codex companion`;
+  if (threadId) document.title = `${chatName(thread)} · Your Turn`;
   subtitle.hidden = false;
   subtitle.textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
   subtitle.title = `${thread.cwd} · last recorded event`;
@@ -647,6 +687,7 @@ function renderThread(thread) {
   renderEarlier(thread.turns);
   renderSessionFiles(thread, turn);
   renderTimeline(thread);
+  renderToolUsage(thread);
   renderSessionInfo(thread, turn);
   if (turn && turn.ended_at) seen.set(thread.id, turn.ended_at);
 }
