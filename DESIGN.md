@@ -95,6 +95,9 @@ Codex controls.
   Other options disclosure that must not resemble choice buttons. Three recent decisions show
   directly; older ones sit behind a counted disclosure row. A pending question appears in the status
   card, not here.
+- What happened shows the latest `Recap:` (Chat so far) above the latest turn's outcome (Latest
+  turn), each with a small label; with no recap it is the outcome alone, and while a turn runs it
+  keeps showing the last recap.
 - More, as disclosure rows: Earlier turns, Files changed, Activity (with Key steps and Everything
   filters), and Session details. Files changed is the session's final set of edited files, most
   recently changed first, without per-turn history (long chats made turn lists noise); it appears

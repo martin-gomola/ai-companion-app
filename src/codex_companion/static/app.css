@@ -244,7 +244,7 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 }
 .open-codex:active { opacity: 0.8; }
 .status-body { display: grid; gap: var(--space-2); min-width: 0; }
-.status-kind { color: var(--color-text-muted); font-size: var(--text-label); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.02em; }
+.status-kind, .recap-label { color: var(--color-text-muted); font-size: var(--text-label); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.02em; }
 [data-status="waiting"] .status-kind { color: var(--color-waiting); }
 .status-text { font-size: var(--text-md); line-height: var(--leading-relaxed); overflow-wrap: anywhere; white-space: pre-wrap; }
 .status-body:not([data-kind="none"], [data-kind="unknown"]) .status-text { font-size: var(--text-lead); }
@@ -266,6 +266,9 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 #reminder-note { color: var(--color-text-muted); font-size: var(--text-xs); }
 #reminder-note:empty { display: none; }
 .outcome { line-height: var(--leading-relaxed); overflow-wrap: anywhere; white-space: pre-wrap; }
+.outcome-card, .recap, .recap-latest { display: grid; gap: var(--space-1); }
+.outcome-card { gap: var(--space-3); }
+.recap:has(+ .recap-latest:not([hidden])) { padding-bottom: var(--space-3); border-bottom: var(--size-hairline) solid var(--color-separator); }
 
 .list-row { padding: var(--space-3) var(--space-4); }
 .warning { display: flex; align-items: flex-start; gap: var(--space-3); background: var(--color-waiting-soft); color: var(--color-waiting); font-size: var(--text-sm); font-weight: var(--weight-medium); }

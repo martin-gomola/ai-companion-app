@@ -288,3 +288,9 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - Turn numbers were removed from Files changed: the two-turn demo lists `db.ts`, `migrate.ts`,
   and `schema.sql` with only their folders, most recently changed first, at 390px light and 320px
   dark with no overflow; the single-turn chat still hides the row. 31 tests pass.
+
+## Recap on the chat page on 2026-10-29
+
+- A finished two-turn demo chat showed Chat so far and Latest turn with a separator (390px light,
+  320px dark); a chat running its third turn showed only the previous recap; a chat without a
+  recap showed the outcome alone, unchanged. No overflow or controls under 44px; 31 tests pass.

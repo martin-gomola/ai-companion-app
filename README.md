@@ -100,8 +100,9 @@ The companion tails those files; it never writes to `~/.codex`.
 - **Handoff format.** The outcome and next step come from the agent's final answer. The plugin's
   `companion-handoff` skill asks agents to start every final answer with `**Outcome:**` and
   `**Next step:**`, and from the second turn on to add a `**Recap:**` line that sums up the whole
-  chat; the chat page shows the latest recap above the outcome. Without those lines, the companion uses the answer's first prose paragraph and
-  infers an Answer step when the reply opens with a request or ends with a question.
+  chat; the chat page shows the latest recap above the outcome, even while a new turn runs.
+  Without those lines, the companion uses the answer's first prose paragraph and infers an Answer
+  step when the reply opens with a request or ends with a question.
 - **Decisions.** The questions Codex asked you, with your answers, plus choices the agent logs with
   the plugin's `log_decision` MCP tool.
 - **Reminders.** **Dismiss reminder** removes a chat's request from the Needs you count in this

@@ -90,7 +90,16 @@
 
     <section class="group" id="outcome-wrap" aria-labelledby="outcome-title" hidden>
       <h2 class="group-title" id="outcome-title"><span class="tone" data-tone="accent"><svg aria-hidden="true"><use href="#i-message"/></svg></span>What happened</h2>
-      <p class="card outcome" id="outcome"></p>
+      <div class="card outcome-card">
+        <div class="recap" id="recap-wrap" hidden>
+          <p class="recap-label">Chat so far</p>
+          <p class="outcome" id="recap"></p>
+        </div>
+        <div class="recap-latest" id="outcome-latest">
+          <p class="recap-label" id="outcome-label" hidden>Latest turn</p>
+          <p class="outcome" id="outcome"></p>
+        </div>
+      </div>
     </section>
 
     <section class="group" id="changes" aria-labelledby="changes-title" hidden>

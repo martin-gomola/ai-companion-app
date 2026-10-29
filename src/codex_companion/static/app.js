@@ -404,7 +404,12 @@ function renderStatus(thread, turn) {
   $("reminder-note").textContent = dismissed ? "Only in this browser. The request is still open in Codex." : "";
 
   const outcome = thread.status === "working" ? "" : turn?.outcome || "";
-  $("outcome-wrap").hidden = !outcome;
+  const recap = thread.turns.findLast((each) => each.recap)?.recap || "";
+  $("outcome-wrap").hidden = !outcome && !recap;
+  $("recap-wrap").hidden = !recap;
+  $("outcome-label").hidden = !recap || !outcome;
+  $("outcome-latest").hidden = !outcome;
+  if ($("recap").textContent !== recap) $("recap").textContent = recap;
   if ($("outcome").textContent !== outcome) $("outcome").textContent = outcome;
 }
 
