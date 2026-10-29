@@ -370,7 +370,7 @@ $("theme-toggle").addEventListener("click", () => {
   const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   try { localStorage.setItem("theme", theme); } catch { /* The choice still applies to this page. */ }
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#171717" : "#f6f8fa");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#1e1e1e" : "#ffffff");
   syncThemeToggle();
 });
 document.addEventListener("themechange", syncThemeToggle);

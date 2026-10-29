@@ -13,17 +13,7 @@
   --color-accent-fill: #0969da;
   --color-on-accent: #ffffff;
 
-  /* Glass: lightly translucent surfaces over the flat Codex background. */
-  --bg-ambient: #f6f8fa;
-  --glass-bg: rgb(255 255 255 / 0.85);
-  --glass-bar: rgb(255 255 255 / 0.9);
-  --glass-edge: inset 0 0 0 1px #d1d9e0;
-  --glass-shadow: 0 1px 3px rgb(31 35 40 / 0.06);
-  --glass-blur: blur(20px) saturate(160%);
-  --bar-fade: linear-gradient(to bottom, rgb(246 248 250 / 0.94) 30%, rgb(246 248 250 / 0));
-  --glass-tint-edge: inset 0 1px 0 rgb(255 255 255 / 0.2);
-  --shadow-accent: 0 2px 8px rgb(9 105 218 / 0.22);
-  --glyph-gloss: linear-gradient(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 60%);
+  --edge: inset 0 0 0 var(--size-hairline) var(--color-separator);
 
   /* Status roles: ink is for text, fill sits behind an on-status glyph. */
   --color-waiting: #bc4c00;
@@ -62,9 +52,9 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 22px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
   --radius-pill: 999px;
 
   --size-icon: 18px;
@@ -75,7 +65,6 @@
   --size-hairline: 1px;
   --page-max: 52rem;
   --motion-fast: 120ms;
-  --scale-pressed: 0.97;
   --motion-status-working: 1.4s;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -93,13 +82,6 @@
   --color-accent: #3794ff;
   --color-accent-fill: #007acc;
   --color-on-accent: #ffffff;
-  --bg-ambient: #171717;
-  --glass-bg: rgb(30 30 30 / 0.85);
-  --glass-bar: rgb(30 30 30 / 0.9);
-  --glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.08);
-  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
-  --bar-fade: linear-gradient(to bottom, rgb(23 23 23 / 0.94) 30%, rgb(23 23 23 / 0));
-  --shadow-accent: 0 2px 8px rgb(0 122 204 / 0.3);
 
   --color-waiting: #e5a33b;
   --color-waiting-fill: #e5a33b;
@@ -114,21 +96,6 @@
   --color-on-status: #000000;
 }
 
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root, :root[data-theme="light"] { --glass-bg: rgb(255 255 255 / 0.96); --glass-bar: rgb(255 255 255 / 0.96); }
-  :root[data-theme="dark"] { --glass-bg: rgb(30 30 30 / 0.96); --glass-bar: rgb(30 30 30 / 0.96); }
-}
-
-/* Reduced transparency and increased contrast replace glass with opaque surfaces. */
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :root, :root[data-theme] {
-    --bg-ambient: var(--color-bg);
-    --glass-bg: var(--color-surface);
-    --glass-bar: var(--color-surface);
-    --glass-blur: none;
-    --bar-fade: linear-gradient(var(--color-bg), var(--color-bg));
-  }
-}
 @media (prefers-contrast: more) {
-  :root, :root[data-theme] { --color-separator: var(--color-border-strong); --glass-edge: inset 0 0 0 1px var(--color-border-strong); }
+  :root, :root[data-theme] { --color-separator: var(--color-border-strong); }
 }

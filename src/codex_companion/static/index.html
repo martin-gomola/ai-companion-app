@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f6f8fa">
+<meta name="theme-color" content="#ffffff">
 <title>Codex companion</title>
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/app.css">
@@ -35,17 +35,17 @@
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></symbol>
   </defs>
 </svg>
-<main class="page">
-  <div class="bar">
-    <a class="back" id="back" href="/" hidden><svg aria-hidden="true"><use href="#i-back"/></svg><span id="back-label">Inbox</span></a>
-    <h1 class="bar-title" id="inbox-title">Inbox</h1>
-    <div class="utility">
-      <p class="connection" id="connection" data-state="connecting" role="status">
-        <span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
-      </p>
-      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><svg aria-hidden="true"><use href="#i-moon"/></svg></button>
-    </div>
+<header class="bar">
+  <a class="back" id="back" href="/" hidden><svg aria-hidden="true"><use href="#i-back"/></svg><span id="back-label">Inbox</span></a>
+  <h1 class="bar-title" id="inbox-title">Inbox</h1>
+  <div class="utility">
+    <p class="connection" id="connection" data-state="connecting" role="status">
+      <span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
+    </p>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><svg aria-hidden="true"><use href="#i-moon"/></svg></button>
   </div>
+</header>
+<main class="page">
   <header class="top" id="thread-heading" hidden>
     <h1 id="title">Loading</h1>
     <p class="subtitle" id="subtitle" hidden></p>

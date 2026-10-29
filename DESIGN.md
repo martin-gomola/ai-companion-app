@@ -25,8 +25,9 @@ Codex controls.
 
 ## Inbox
 
-- The header is one row: the "Inbox" title (or the active filter's name) on the left, and one glass
-  capsule on the right that groups the live connection state with the theme switch. The product
+- The header is a full-width toolbar, as in the Codex window: the "Inbox" title (or the active
+  filter's name) on the left, and one bordered group on the right that holds the live connection
+  state and the theme switch. The product
   name lives in the window title and footer, not in a separate header line.
 - Directly below sits the segmented summary: All, Needs you, Working, and New. It stays pinned while
   the list scrolls. Each segment shows its count and is also the filter for that status, so the
@@ -69,7 +70,7 @@ Codex controls.
   full chat page. Narrowing the window below 900px with a panel open switches to the chat page.
 ## Chat page
 
-- A sticky row with the back link on the left and the same live-state and theme capsule on the
+- A sticky row with the back link on the left and the same live-state and theme group on the
   right. Below it, a large title (the chat name)
   and a subtitle with the project and the time of the last recorded event.
 - The status card comes first. Its header shows the status glyph and label and the "Open in Codex"
@@ -117,25 +118,21 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
   accent text and links use `#3794ff`, with `#007acc` reserved for filled controls with white text,
   and danger text uses `#f48771` while `#fa423e` stays the glyph fill. GitHub Light has no orange,
   so needs-you uses `#bc4c00`, GitHub's severe orange.
-- Material: flat Codex background with lightly translucent glass layers: lists, cards, summary
-  segments, and capsule controls (back, the live state and theme group, Close, secondary buttons,
-  chips). Glass uses backdrop blur, a 1px border edge, and a faint shadow. Text contrast is computed
-  against glass composited over the page and with the pressed overlay.
-- Reduced transparency and increased contrast replace glass and backdrop with opaque surfaces;
-  increased contrast also strengthens separators and edges. Without backdrop-filter support glass
-  becomes nearly opaque.
-- The summary segments and the chat back bar float over scrolling content; the bar uses a soft
-  fade instead of a hard edge.
+- Windows follow Codex: opaque, flat surfaces with a 1px hairline edge and no shadow, blur, or
+  ambient backdrop. The toolbar is the surface color with a bottom border. Pages sit on the grey
+  page color. On the board, the inbox is the grey sidebar and an open chat is the white main pane,
+  separated by a 1px border. Increased contrast strengthens every separator and edge.
+- The summary segments and the chat toolbar stay pinned over scrolling content.
 - Status color roles: orange for needs you, purple for working, green for new or passed results,
   red for failures and stopped turns, grey for history. Blue is the accent for links, the back link,
   selected segments, and Open in Codex. Color always accompanies a label or glyph.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
   Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.
-- Groups and cards use 22px corners; controls are capsules; inner shapes stay concentric.
-  Separators are inset to the text column. Filled actions (Open in Codex, selected segment and
-  chip) carry a light top edge and an accent glow; status glyphs have a subtle top gloss.
-- Motion: the working glyph rotates continuously without restarting on updates, and capsule
-  controls shrink slightly while pressed. Reduced motion removes both.
+- Groups and cards use 10px corners and controls 8px; inner shapes stay concentric. Separators are
+  inset to the text column. Filled actions (Open in Codex, selected segment and chip) are flat
+  accent fills. Controls keep 44px targets even though Codex's own controls are smaller.
+- Motion: the working glyph rotates continuously without restarting on updates, and disclosure
+  chevrons rotate. Reduced motion removes both.
 
 ## Accessibility
 
