@@ -350,10 +350,12 @@ function renderStatus(thread, turn) {
   $("next-options").hidden = options.length === 0;
   $("next-options").replaceChildren(...options.map((option) => el("li", "", option)));
 
-  $("reminder-controls").hidden = !hasAttention(chat) || !thread.attention_key;
+  $("reminder-toggle").hidden = !hasAttention(chat) || !thread.attention_key;
   const dismissed = reminderDismissed(chat);
-  $("reminder-toggle").textContent = dismissed ? "Restore reminder" : "Dismiss reminder";
-  $("reminder-note").textContent = dismissed ? "Dismissed in this browser. The request remains open in Codex." : "Only affects this browser’s inbox. Does not answer or approve the request.";
+  $("reminder-toggle").setAttribute("aria-label", dismissed ? "Restore reminder" : "Dismiss reminder");
+  $("reminder-toggle").title = dismissed ? "Restore reminder" : "Dismiss reminder (this browser only; does not answer the request)";
+  $("reminder-icon").setAttribute("href", dismissed ? "#i-bell" : "#i-bell-off");
+  $("reminder-note").textContent = dismissed ? "Only in this browser. The request is still open in Codex." : "";
 
   const outcome = thread.status === "working" ? "" : turn?.outcome || "";
   $("outcome-wrap").hidden = !outcome;
@@ -560,7 +562,7 @@ function renderThread(thread) {
     $("status-body").dataset.kind = "none";
     $("next-kind").hidden = true;
     setStatusText("It may have been archived. Go back to the inbox.");
-    for (const id of ["open-codex", "next-options", "reminder-controls", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
+    for (const id of ["open-codex", "next-options", "reminder-toggle", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
     return;
   }
   threadData = thread;

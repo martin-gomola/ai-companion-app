@@ -157,7 +157,7 @@ h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: va
 @media (hover: hover) and (pointer: fine) {
   .row:hover, .show-all:hover, .segment:not([aria-current]):hover, details > summary:hover { background: var(--color-surface-pressed); }
   .button:hover { background: var(--color-fill); }
-  .button-quiet:hover { background: none; color: var(--color-text); text-decoration-color: currentColor; }
+  .icon-button:hover { background: color-mix(in srgb, var(--color-text) 8%, transparent); color: var(--color-text); }
   .open-codex:hover { background: color-mix(in srgb, var(--color-accent-fill) 88%, black); }
 }
 .row:focus-visible, .show-all:focus-visible, summary:focus-visible { outline-offset: calc(-1 * var(--size-line)); border-radius: var(--radius-lg); }
@@ -212,22 +212,20 @@ h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: va
 .status-body[data-kind="none"] .status-text, .status-body[data-kind="unknown"] .status-text { color: var(--color-text-muted); }
 .status-text .command { display: block; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--color-fill); }
 .options { display: grid; gap: var(--space-1); padding-inline-start: var(--space-5); list-style: disc; overflow-wrap: anywhere; }
-.reminder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
 .button {
   min-height: var(--size-control); padding: var(--space-2) var(--space-4);
   border: 0; border-radius: var(--radius-md);
   color: var(--color-accent); font: inherit; font-weight: var(--weight-medium); cursor: pointer;
 }
 .button:active { background: var(--color-surface-pressed); }
-/* A low-priority action: a quiet text button that still keeps the 44px target. */
-.button-quiet {
-  margin-inline-start: calc(-1 * var(--space-2)); padding: 0 var(--space-2);
-  border-radius: var(--radius-sm); background: none; box-shadow: none;
-  color: var(--color-text-muted); font-size: var(--text-sm);
-  text-decoration: underline; text-decoration-color: var(--color-separator); text-underline-offset: 0.2em;
+.icon-button {
+  display: grid; place-items: center; flex: none;
+  width: var(--size-control); height: var(--size-control); padding: 0; border: 0; border-radius: var(--radius-md);
+  background: none; color: var(--color-text-muted); cursor: pointer;
 }
-.button-quiet:active { background: none; color: var(--color-text); }
-#reminder-note { flex: 1 1 12rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+.icon-button:active { background: var(--color-surface-pressed); color: var(--color-text); }
+#reminder-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+#reminder-note:empty { display: none; }
 .outcome { line-height: var(--leading-relaxed); overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .list-row { padding: var(--space-3) var(--space-4); }

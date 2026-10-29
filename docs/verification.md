@@ -249,3 +249,10 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   6% tints and white on the hovered Open in Codex fill stay at least 4.5:1; the validator passed.
   Phone, 200% text, and board views in both themes showed no overflow or controls under 44px; 31
   tests pass.
+
+## Bell icon for dismissing the reminder on 2026-10-29
+
+- Dismiss reminder moved from a text button in the card body to a 44px bell icon in the status
+  header, with an accessible label and tooltip that switch to Restore reminder. At 320, 390, and
+  1440px in both themes, clicking the bell dismissed the reminder, kept focus on it, showed the
+  browser-only note, and a second click restored it; no overflow or controls under 44px.

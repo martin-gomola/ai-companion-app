@@ -134,8 +134,10 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 - No colored side stripes on cards, rows, or quotes: that idiom reads as generic generated UI. The
   status card is one surface: for needs you, working, and stopped it takes a 6% tint and a border
   in the status color, with no inner band or divider, so the header reads as part of the card. At
-  6% every text and status ink stays at 4.5:1. Open in Codex is the only filled action; Dismiss
-  reminder is a quiet muted text button beside its note, still a 44px target. On phones,
+  6% every text and status ink stays at 4.5:1. Open in Codex is the only filled action; Dismissing
+  the reminder is a muted 44px bell icon in the card header, as notification mutes work elsewhere:
+  a struck-through bell dismisses, a plain bell restores. Its label and tooltip say it only affects
+  this browser; after dismissing, a short note says the request is still open in Codex. On phones,
   disclosure-row values move under their label instead of squeezing it.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
   Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.
