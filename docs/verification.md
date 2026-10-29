@@ -144,3 +144,17 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   keyboard focus survived a full thread rerender; unavailable usage remained distinct from zero.
 - Native device, VoiceOver, billing reconciliation, and live account-limit integration remain outside
   this verification. The local server was relaunched with the updated parser before live checks.
+
+## Attention-list redesign on 2026-10-29
+
+- Before (a1ac78d) and after screenshots of the inbox, a Needs you filter, and waiting, working, and
+  done chats were rendered in Chromium at 320, 390, and 430px in light and dark, plus 200% text at
+  320px and a 1000px desktop window. Demo data added six extra Needs you chats to exercise the
+  five-row section cap and Show all.
+- No view had horizontal overflow or a control shorter than 44px, including at 200% text. Token
+  contrast was computed: text roles are at least 4.5:1 on rows, grouped backgrounds, and pressed rows
+  in both appearances; status glyph fills are at least 3:1 against their glyph and the row.
+- The inbox at 390px fits five Needs you rows, Show all, Working, and New results in about 1240px,
+  against about 1680px for the project-card layout with the same chats.
+- The iOS Simulator is not installed, so Safari on iPhone, VoiceOver, and reduced transparency in
+  WebKit were not checked.
