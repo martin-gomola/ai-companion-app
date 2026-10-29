@@ -22,7 +22,7 @@ from conftest import (
     write_rollout,
 )
 
-from codex_companion.rollout import RolloutParser, RolloutTail, Sessions, parse_answer
+from codex_companion.rollout import RolloutParser, RolloutTail, Sessions, parse_answer, parse_recap
 
 
 def test_folds_a_turn_into_a_summary_steps_and_decisions(codex_home: Path) -> None:
@@ -89,6 +89,13 @@ def test_later_check_clears_the_stale_flag_and_formatted_answer_sets_next_step(c
 )
 def test_parse_answer(text: str, expected: tuple[str, str, str, bool]) -> None:
     assert parse_answer(text) == expected
+
+
+def test_parse_recap() -> None:
+    text = "**Outcome:** Typo fixed.\n**Next step:** none\n**Recap:** Login fix shipped; only polish is left.\n\nMore."
+    assert parse_answer(text) == ("Typo fixed.", "none", "", True)
+    assert parse_recap(text) == "Login fix shipped; only polish is left."
+    assert parse_recap("**Outcome:** Done.") == ""
 
 
 def test_inbox_skips_subagents_and_reads_only_the_tail(codex_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:

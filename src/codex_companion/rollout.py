@@ -32,7 +32,7 @@ QUESTION_REPLY = re.compile(r"<send_user_message_question_reply>\s*(.*?)\s*</sen
 # Codex prepends app and environment context to user messages; it is not what the user typed.
 INJECTED_CONTEXT = re.compile(r"<([\w-]*context[\w-]*|user_instructions)\b[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
 ANSWER_LABEL = re.compile(
-    r"^[\s#>*_-]*(outcome|result|next step|your next step|next)[*_\s]*:[*_\s]*(.*)$", re.IGNORECASE | re.MULTILINE
+    r"^[\s#>*_-]*(outcome|result|next step|your next step|next|recap)[*_\s]*:[*_\s]*(.*)$", re.IGNORECASE | re.MULTILINE
 )
 NEXT_KIND = re.compile(r"^(answer|review|approve|run|decide)\b\s*[:\-–]?\s*", re.IGNORECASE)
 NOTHING_NEEDED = re.compile(r"^(none|nothing|no action|n/a|—|-)\b", re.IGNORECASE)
@@ -80,6 +80,7 @@ class Turn:
     status: str = "working"
     prompt: str = ""
     outcome: str = ""
+    recap: str = ""
     next_kind: str = "unknown"
     next_text: str = ""
     formatted: bool = False
@@ -181,6 +182,12 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
         else:
             kind = "do"
     return _clip(outcome, 200), kind, step_text, True
+
+
+def parse_recap(text: str) -> str:
+    """The whole-chat summary from a `Recap:` line, which the handoff asks for after the first turn."""
+    recap = next((m.group(2) for m in ANSWER_LABEL.finditer(text) if m.group(1).lower() == "recap"), "")
+    return _clip(recap, 400)
 
 
 def needs_you(entry: dict[str, Any]) -> bool:
@@ -300,6 +307,7 @@ class RolloutParser:
             text = _texts(item.get("content"))
             if item.get("phase") == "final_answer":
                 turn.outcome, turn.next_kind, turn.next_text, turn.formatted = parse_answer(text)
+                turn.recap = parse_recap(text)
                 self.state.attention_key = ""
                 if turn.next_kind not in {"unknown", "none"} and turn.next_text:
                     self._attention(at, turn.next_kind, text)

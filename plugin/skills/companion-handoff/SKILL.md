@@ -21,6 +21,15 @@ need them. The inbox shows two lines from your final answer, so start every fina
 - `approve: <the plan or action>` before you do something risky or irreversible.
 - `run: <command>` when the user has to run something you cannot.
 
+From the second turn of a chat on, add a third line that recaps the whole chat, not just this turn,
+so the user can pick it up after time away:
+
+```
+**Recap:** <one or two sentences: the chat's goal, what is settled, what is still open>
+```
+
+Do not repeat the next step in the recap.
+
 Then write the details as usual, but keep them short. Do not repeat the outcome. Do not list
 changed files or test results; the companion reads them from the chat itself.
 
