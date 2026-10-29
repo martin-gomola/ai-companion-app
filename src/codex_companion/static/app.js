@@ -4,9 +4,8 @@ const $ = (id) => document.getElementById(id);
 function readPreference(key) {
   try { return localStorage.getItem(key); } catch { return null; }
 }
-document.documentElement.dataset.theme = readPreference("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 const MAX_STEPS = 80;
-const PROJECT_PREVIEW_LIMIT = 3;
+const SECTION_LIMIT = 5;
 const DECISION_PREVIEW_LIMIT = 3;
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 const KEY_KINDS = new Set(["user", "answer", "question", "decision", "edit", "agent"]);
@@ -23,11 +22,21 @@ const STATUS = {
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
 const NEXT_LABEL = { answer: "Answer", review: "Review", approve: "Approve", run: "Run", decide: "Decide", do: "To do" };
+const STEP_LABEL = {
+  command: "Ran a command", edit: "Edited files", tool: "Called a tool", thinking: "Reasoning", agent: "Delegated work",
+  decision: "Made a decision", message: "Progress update", answer: "Wrote a response", question: "Asked a question",
+};
 const INBOX_FILTERS = {
   waiting: { label: "Needs you", empty: "No recent chats need you right now." },
   working: { label: "Working", empty: "No recent chats are currently working." },
   new: { label: "New results", empty: "No unseen results in the recent inbox from the last 24 hours." },
 };
+const SECTIONS = [
+  { key: "waiting", label: "Needs you" },
+  { key: "working", label: "Working" },
+  { key: "new", label: "New results" },
+  { key: "earlier", label: "Earlier" },
+];
 
 const threadId = new URLSearchParams(location.search).get("thread") || "";
 const statusParam = new URLSearchParams(location.search).get("status");
@@ -36,29 +45,6 @@ const inboxReturn = inboxStatus ? `&status=${inboxStatus}` : "";
 document.body.dataset.view = threadId ? "thread" : "inbox";
 let latest = null;
 let filter = "key";
-const projectMotionStarted = new Map();
-
-$("theme-toggle").addEventListener("click", () => {
-  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = theme;
-  try { localStorage.setItem("theme", theme); } catch { /* Theme still works for this page. */ }
-  const next = theme === "dark" ? "light" : "dark";
-  $("theme-toggle").setAttribute("aria-label", `Switch to ${next} theme`);
-  $("theme-toggle").title = `Switch to ${next} theme`;
-  $("theme-toggle").querySelector("use").setAttribute("href", `#i-${next === "dark" ? "moon" : "sun"}`);
-});
-
-const currentTheme = document.documentElement.dataset.theme;
-const nextTheme = currentTheme === "dark" ? "light" : "dark";
-$("theme-toggle").setAttribute("aria-label", `Switch to ${nextTheme} theme`);
-$("theme-toggle").title = `Switch to ${nextTheme} theme`;
-$("theme-toggle").querySelector("use").setAttribute("href", `#i-${currentTheme === "dark" ? "sun" : "moon"}`);
-
-$("hero-meta").querySelector("summary").addEventListener("click", () => {
-  if (!$("hero-meta").open && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    requestAnimationFrame(() => $("session-facts").animate([{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 180, easing: "ease-out" }));
-  }
-});
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -76,20 +62,22 @@ function icon(name) {
   return svg;
 }
 
-function iconLabel(id, name, text) {
+// Every working glyph shares one phase, so live re-renders never restart the rotation.
+function syncSpin(use) {
+  use.style.animationDelay = `-${performance.now() % 1400}ms`;
+}
+
+function rowLabel(id, text, value = "") {
   const target = $(id);
-  if (!target.classList.contains("icon-label")) {
-    target.classList.add("icon-label");
-    target.replaceChildren(icon(name), el("span", "icon-label-text"));
-    if (target.tagName === "SUMMARY") {
-      const chevron = icon("i-back");
-      chevron.classList.add("disclosure-chevron");
-      target.append(chevron);
-    }
+  if (!target.querySelector(".row-label")) {
+    const chevron = icon("i-chevron");
+    chevron.classList.add("disclosure-chevron");
+    target.replaceChildren(el("span", "row-label"), el("span", "row-value"), chevron);
   }
-  target.querySelector("svg use").setAttribute("href", `#${name}`);
-  const label = target.querySelector(".icon-label-text");
+  const label = target.querySelector(".row-label");
   if (label.textContent !== text) label.textContent = text;
+  const detail = target.querySelector(".row-value");
+  if (detail.textContent !== value) detail.textContent = value;
 }
 
 function clock(iso) {
@@ -108,6 +96,10 @@ function ago(iso) {
 
 function chatName(chat) {
   return chat.title || `Untitled chat · ${chat.cwd.split("/").pop() || chat.id.slice(0, 8)}`;
+}
+
+function projectName(chat) {
+  return chat.project || chat.cwd.split("/").pop() || "Unassigned";
 }
 
 const seen = {
@@ -153,51 +145,8 @@ function isNewResult(chat) {
   return !hasAttention(chat) && chat.status !== "working" && chat.status !== "interrupted" && Date.now() - ended < NEW_WINDOW_MS && chat.turn_ended_at > seen.get(chat.id);
 }
 
-function matchesInboxStatus(chat, status) {
-  return status === "waiting" ? needsAttention(chat) : status === "new" ? isNewResult(chat) : chat.status === status;
-}
-
-function tokenCount(value, compact = false) {
-  return Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString(compact ? "en-US" : undefined, compact ? { notation: "compact", maximumFractionDigits: 1 } : {}) : "Not reported";
-}
-
-function renderSessionInfo(thread, turn) {
-  const usage = thread.token_usage || {};
-  const last = thread.last_token_usage || {};
-  const contextWindow = thread.context_window;
-  const hasContext = Number.isSafeInteger(last.total_tokens) && last.total_tokens >= 0 && Number.isSafeInteger(contextWindow) && contextWindow > 0;
-  $("hero-meta").hidden = false;
-  $("session-project").textContent = thread.project || thread.cwd.split("/").pop() || "Unassigned";
-  $("session-project").title = thread.cwd;
-  $("session-updated").textContent = ago(thread.updated_at);
-  $("session-updated").title = "Last recorded event";
-  $("session-tokens").textContent = Number.isSafeInteger(usage.total_tokens) ? tokenCount(usage.total_tokens, true) : "—";
-  $("session-tokens").title = `${tokenCount(usage.total_tokens)} reported session tokens`;
-  $("session-context").textContent = hasContext ? `${Math.round(last.total_tokens / contextWindow * 100)}%` : "—";
-  $("session-context-metric").title = hasContext ? `Last reported request: ${tokenCount(last.total_tokens)} / ${tokenCount(contextWindow)} tokens` : "Context usage not reported";
-  const labels = {
-    input_tokens: "Input", cached_input_tokens: "Cached input (included in input)",
-    cache_write_input_tokens: "Cache-write input", output_tokens: "Output",
-    reasoning_output_tokens: "Reasoning (included in output)", total_tokens: "Session total",
-  };
-  const facts = Object.entries(labels).filter(([key]) => Object.hasOwn(usage, key)).map(([key, label]) => [label, tokenCount(usage[key]), "usage"]);
-  facts.push(
-    ["Project", thread.project || thread.cwd.split("/").pop() || "Unassigned"],
-    ["Last request tokens", tokenCount(last.total_tokens), "context"],
-    ["Reported context window", contextWindow > 0 ? tokenCount(contextWindow) : "Not reported", "context"],
-    ["Model (latest turn)", thread.model, "runtime"], ["Reasoning effort", thread.reasoning_effort, "runtime"],
-    ["Session provider", thread.model_provider, "runtime"], ["Recorded Git branch", thread.git_branch],
-    ["Session client", thread.cli_version], ["Working directory", thread.cwd],
-    ["Turn", turn?.index ? String(turn.index) : ""],
-  );
-  if (thread.token_usage_at && !Number.isNaN(new Date(thread.token_usage_at).getTime())) facts.push(["Totals reported", new Date(thread.token_usage_at).toLocaleString()]);
-  $("session-facts").replaceChildren(...facts.filter(([, value]) => value).map(([label, value, kind]) => {
-    const field = el("div");
-    field.dataset.kind = kind || "workspace";
-    field.append(el("dt", "", label), el("dd", "", value));
-    return field;
-  }));
-  $("session-note").textContent = Object.keys(usage).length ? "Reported session totals accumulate across requests. Cached input is included in input; reasoning is included in output. Context uses the last reported request and model window. Branch and client come from session metadata." : "Cumulative session usage has not been reported for this chat.";
+function sectionOf(chat) {
+  return needsAttention(chat) ? "waiting" : chat.status === "working" ? "working" : isNewResult(chat) ? "new" : "earlier";
 }
 
 function chatSummary(chat) {
@@ -209,14 +158,15 @@ function chatSummary(chat) {
 function renderRow(chat) {
   const state = attentionState(chat);
   const status = STATUS[state] || STATUS.idle;
+  const unread = isNewResult(chat);
   const item = el("li");
   const link = el("a", "row");
   link.href = `/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`;
   link.dataset.status = state;
-  const unread = isNewResult(chat);
   link.dataset.unread = String(unread);
-  const badge = el("span", "row-icon");
-  badge.append(icon(status.icon));
+  const glyph = el("span", "glyph");
+  glyph.append(icon(status.icon));
+  if (state === "working") syncSpin(glyph.querySelector("use"));
   const body = el("span", "row-body");
   const head = el("span", "row-head");
   head.append(el("span", "row-title", chatName(chat)), el("span", "row-time", ago(chat.updated_at)));
@@ -225,168 +175,160 @@ function renderRow(chat) {
   if (summary) body.append(el("span", "row-text", summary));
   const meta = el("span", "row-meta");
   const action = chat.question ? "Answer" : NEXT_LABEL[chat.next_kind];
-  meta.append(el("span", `tag tag--${state}`, state === "waiting" && action ? action : status.label));
+  const tag = state === "waiting" ? action || status.label : state === "done" || state === "idle" ? "" : status.label;
+  if (tag) meta.append(el("span", `tag tag--${state}`, tag));
   if (unread) meta.append(el("span", "tag tag--new", "New"));
+  meta.append(el("span", "row-project", projectName(chat)));
   body.append(meta);
-  link.append(badge, body);
+  const chevron = icon("i-chevron");
+  chevron.classList.add("row-chevron");
+  link.append(glyph, body, chevron);
   item.append(link);
   return item;
 }
 
+function renderSection({ key, label }, chats) {
+  const capped = !inboxStatus && key !== "earlier" && chats.length > SECTION_LIMIT;
+  const wrap = el("section", "group");
+  wrap.dataset.section = key;
+  const title = el("h2", "group-title");
+  title.id = `section-${key}`;
+  title.append(el("span", "", label), el("span", "group-count", String(chats.length)));
+  wrap.setAttribute("aria-labelledby", title.id);
+  const list = el("ol", "list");
+  list.replaceChildren(...chats.slice(0, capped ? SECTION_LIMIT : chats.length).map(renderRow));
+  if (capped) {
+    const item = el("li");
+    const more = el("a", "show-all");
+    more.href = `/?status=${key}`;
+    more.append(el("span", "", `Show all ${chats.length}`), icon("i-chevron"));
+    item.append(more);
+    list.append(item);
+  }
+  wrap.append(title, list);
+  return wrap;
+}
+
 function renderInbox(chats) {
   latest = chats;
-  const focused = document.activeElement;
-  const focusedProject = focused.closest(".project-group")?.dataset.project;
-  const focusedHref = focused.closest(".row")?.getAttribute("href");
-  const focusedHistory = focused.matches(".project-history > summary");
-  const shownChats = inboxStatus ? chats.filter((chat) => matchesInboxStatus(chat, inboxStatus)) : chats;
-  const groups = new Map();
-  for (const chat of shownChats) {
-    const project = chat.project || "Unassigned";
-    if (!groups.has(project)) groups.set(project, []);
-    groups.get(project).push(chat);
-  }
-  const priority = (chat) => needsAttention(chat) ? 0 : chat.status === "working" ? 1 : isNewResult(chat) ? 2 : 3;
-  const knownProjects = new Map([...$("project-groups").children].map((group) => [group.dataset.project, group.dataset.state]));
-  for (const name of projectMotionStarted.keys()) if (!groups.has(name)) projectMotionStarted.delete(name);
-  const expanded = new Set([...$("project-groups").querySelectorAll(".project-group[open]")].map((group) => group.dataset.project));
-  const expandedHistory = new Set([...$("project-groups").querySelectorAll(".project-history[open]")].map((history) => history.closest(".project-group").dataset.project));
+  const focusedHref = document.activeElement.closest(".row, .show-all")?.getAttribute("href");
+  const groups = new Map(SECTIONS.map(({ key }) => [key, []]));
+  for (const chat of chats) groups.get(sectionOf(chat)).push(chat);
+  for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const shown = SECTIONS.filter(({ key }) => (!inboxStatus || key === inboxStatus) && groups.get(key).length > 0);
+  $("sections").replaceChildren(...shown.map((section) => renderSection(section, groups.get(section.key))));
   $("inbox-empty").hidden = chats.length > 0;
-  $("filter-empty").hidden = !inboxStatus || shownChats.length > 0 || chats.length === 0;
+  $("filter-empty").hidden = !inboxStatus || shown.length > 0 || chats.length === 0;
   $("filter-empty").textContent = inboxStatus ? INBOX_FILTERS[inboxStatus].empty : "";
-  iconLabel("projects-title", inboxStatus ? STATUS[inboxStatus]?.icon || "i-answer" : "i-folder", inboxStatus ? INBOX_FILTERS[inboxStatus].label : "Projects");
-  $("show-all-chats").hidden = !inboxStatus;
-  const projects = [...groups.entries()].sort(([nameA, chatsA], [nameB, chatsB]) =>
-    Math.min(...chatsA.map(priority)) - Math.min(...chatsB.map(priority)) || nameA.localeCompare(nameB),
-  ).map(([name, projectChats]) => {
-    projectChats.sort((a, b) => priority(a) - priority(b) || b.updated_at.localeCompare(a.updated_at));
-    const waiting = projectChats.some(needsAttention);
-    const state = waiting ? "waiting" : projectChats.some((chat) => chat.status === "working") ? "working" : projectChats.some(isNewResult) ? "new" : "";
-    const group = el("details", "project-group");
-    if (!knownProjects.has(name)) group.classList.add("is-entering");
-    group.dataset.project = name;
-    group.open = knownProjects.has(name) ? expanded.has(name) : Boolean(inboxStatus) || waiting;
-    const heading = el("summary", "project-heading");
-    const badge = el("span", "project-icon");
-    const pictogram = icon(STATUS[state]?.icon || "i-folder");
-    if (state === "waiting" || state === "working") {
-      if (knownProjects.get(name) !== state || !projectMotionStarted.has(name)) projectMotionStarted.set(name, performance.now());
-      // Preserve the cue's phase when live updates rebuild the header.
-      pictogram.querySelector("use").style.animationDelay = `-${performance.now() - projectMotionStarted.get(name)}ms`;
-    } else projectMotionStarted.delete(name);
-    badge.append(pictogram);
-    const identity = el("span", "project-identity");
-    identity.append(el("span", "project-name", name), el("span", "project-count", `${projectChats.length} ${projectChats.length === 1 ? "chat" : "chats"}`));
-    heading.append(badge, identity);
-    if (state) heading.append(el("span", `project-state project-state--${state}`, state === "waiting" ? "Needs you" : state === "working" ? "Working" : "New results"));
-    group.dataset.state = state;
-    const previewLimit = Math.max(PROJECT_PREVIEW_LIMIT, projectChats.filter((chat) => priority(chat) < 3).length);
-    const rows = el("ol", "rows");
-    rows.replaceChildren(...projectChats.slice(0, previewLimit).map(renderRow));
-    heading.addEventListener("click", () => {
-      if (!group.open && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        requestAnimationFrame(() => rows.animate([{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 180, easing: "ease-out" }));
-      }
-    });
-    group.append(heading, rows);
-    const olderChats = projectChats.slice(previewLimit);
-    if (olderChats.length) {
-      const history = el("details", "project-history");
-      history.open = expandedHistory.has(name);
-      const summary = el("summary");
-      summary.append(icon("i-back"), el("span", "", `${olderChats.length} earlier ${olderChats.length === 1 ? "chat" : "chats"}`));
-      const olderRows = el("ol", "rows");
-      olderRows.replaceChildren(...olderChats.map(renderRow));
-      history.append(summary, olderRows);
-      group.append(history);
-    }
-    return group;
-  });
-  $("project-groups").replaceChildren(...projects);
-  if (focusedProject) {
-    const group = projects.find((project) => project.dataset.project === focusedProject);
-    const target = focusedHref ? [...(group?.querySelectorAll(".row") || [])].find((row) => row.getAttribute("href") === focusedHref) : focusedHistory ? group?.querySelector(".project-history > summary") : group?.querySelector(".project-heading");
-    const history = target?.closest(".project-history");
-    if (focusedHref && history) history.open = true;
-    (target || group?.querySelector(".project-heading"))?.focus({ preventScroll: true });
+  for (const segment of document.querySelectorAll(".segment")) {
+    const kind = segment.dataset.kind;
+    const count = kind ? groups.get(kind).length : chats.length;
+    segment.dataset.empty = String(count === 0);
+    segment.querySelector(".segment-count").textContent = count;
+    const label = kind ? INBOX_FILTERS[kind].label : "All recent chats";
+    segment.setAttribute("aria-label", `${label}: ${count} ${count === 1 ? "chat" : "chats"}`);
+    if (kind === inboxStatus) segment.setAttribute("aria-current", "page");
+    else segment.removeAttribute("aria-current");
   }
-  const needs = chats.filter(needsAttention).length;
-  for (const tile of document.querySelectorAll(".overview-card")) {
-    const kind = tile.dataset.kind;
-    const matches = chats.filter((chat) => matchesInboxStatus(chat, kind));
-    tile.dataset.empty = String(matches.length === 0);
-    tile.querySelector(".overview-value").textContent = matches.length;
-    tile.href = inboxStatus !== kind && matches.length === 1 ? `/?thread=${encodeURIComponent(matches[0].id)}${inboxReturn}` : `/?status=${kind}`;
-    tile.setAttribute("aria-label", `${INBOX_FILTERS[kind].label}: ${matches.length} ${matches.length === 1 ? "chat" : "chats"}`);
-    if (inboxStatus === kind) tile.setAttribute("aria-current", "page");
-    else tile.removeAttribute("aria-current");
-  }
-  $("project-total").textContent = inboxStatus ? `${shownChats.length} ${shownChats.length === 1 ? "match" : "matches"}` : `${groups.size} ${groups.size === 1 ? "project" : "projects"} · ${shownChats.length} recent ${shownChats.length === 1 ? "chat" : "chats"}`;
+  if (focusedHref) [...$("sections").querySelectorAll("a")].find((link) => link.getAttribute("href") === focusedHref)?.focus({ preventScroll: true });
+  const needs = groups.get("waiting").length;
   document.title = needs ? `(${needs}) Codex companion` : "Codex companion";
 }
 
 // Thread
 
-function renderHero(thread, turn) {
-  const hero = document.querySelector(".hero");
-  const state = attentionState({ ...thread, next_kind: turn?.next_kind, next_text: turn?.next_text });
-  hero.dataset.status = state;
-  const status = STATUS[state] || STATUS.idle;
-  $("hero-status-icon").setAttribute("href", `#${status.icon}`);
-  $("hero-title").textContent = status.label;
-  const working = thread.status === "working";
-  const step = [...thread.steps].reverse().find((step) => step.turn === turn?.index && !["turn", "user"].includes(step.kind));
-  const activityLabels = { command: "Latest step: command", edit: "Latest step: file changes", tool: "Latest step: tool call", thinking: "Latest step: reasoning", agent: "Latest step: delegated work", decision: "Latest step: decision", message: "Latest step: progress update", answer: "Latest step: response", question: "Latest step: question" };
-  const text = working ? activityLabels[step?.kind] || "Working on your request." : turn && turn.outcome;
-  $("hero-text").textContent = text || "No outcome yet.";
-  const activityBadge = document.querySelector(".latest-step");
-  activityBadge.dataset.active = String(working);
-  activityBadge.dataset.kind = working && Object.hasOwn(activityLabels, step?.kind) ? step.kind : "working";
-  $("latest-step-icon").setAttribute("href", `#${working ? ICONS[step?.kind] || "i-working" : "i-message"}`);
-  $("recorded-activity-icon").setAttribute("href", `#${ICONS[step?.kind] || "i-tool"}`);
-  const activityText = step?.title || "";
-  const commandActivity = step?.kind === "command";
-  const activityAlreadyListed = (step?.kind === "edit" && turn?.files.length > 0) || (commandActivity && turn?.checks.some((check) => check.command === activityText));
-  $("hero-activity").hidden = !working || !activityText || activityAlreadyListed;
-  $("hero-activity-text").classList.toggle("terminal", commandActivity);
-  // Leave the selected text untouched when an unrelated session metric changes.
-  if ($("hero-activity-text").textContent !== activityText || Boolean($("hero-activity-text").querySelector("code")) !== commandActivity) {
-    $("hero-activity-text").replaceChildren(commandActivity ? commandCode(activityText) : el("p", "", activityText));
-  }
-  renderSessionInfo(thread, turn);
+function tokenCount(value, compact = false) {
+  return Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString(compact ? "en-US" : undefined, compact ? { notation: "compact", maximumFractionDigits: 1 } : {}) : "Not reported";
 }
 
-function renderNext(thread, turn) {
-  const pending = [...thread.decisions].reverse().find((d) => d.source === "asked" && d.chosen === null);
-  let kind = turn ? turn.next_kind : "unknown";
-  let text = turn ? turn.next_text : "";
-  if (thread.status === "working") {
-    kind = "working";
-    text = "";
-  } else if (pending) {
-    kind = "answer";
-    text = pending.question;
-  } else if (kind === "none") {
-    text = "No further action was requested.";
-  } else if (kind === "unknown") {
-    text = "No next action was recorded.";
-  }
-  $("next").hidden = kind === "working";
-  $("next").dataset.kind = kind;
-  $("next-kind").hidden = !NEXT_LABEL[kind];
-  const actionIcon = { answer: "i-question", review: "i-message", approve: "i-answer", run: "i-command", decide: "i-decision", do: "i-tool" };
-  iconLabel("next-kind", actionIcon[kind] || "i-question", NEXT_LABEL[kind] || "");
-  $("next-text").textContent = text;
-  const options = pending ? pending.options : [];
-  $("next-options").hidden = options.length === 0;
-  $("next-options").replaceChildren(...options.map((option) => el("li", "", option)));
+function renderSessionInfo(thread, turn) {
+  const usage = thread.token_usage || {};
+  const last = thread.last_token_usage || {};
+  const contextWindow = thread.context_window;
+  const hasContext = Number.isSafeInteger(last.total_tokens) && last.total_tokens >= 0 && Number.isSafeInteger(contextWindow) && contextWindow > 0;
+  const brief = [
+    Number.isSafeInteger(usage.total_tokens) ? `${tokenCount(usage.total_tokens, true)} tokens` : "",
+    hasContext ? `${Math.round(last.total_tokens / contextWindow * 100)}% context` : "",
+  ].filter(Boolean).join(" · ");
+  rowLabel("session-summary", "Session details", brief);
+  const labels = {
+    input_tokens: "Input", cached_input_tokens: "Cached input (included in input)",
+    cache_write_input_tokens: "Cache-write input", output_tokens: "Output",
+    reasoning_output_tokens: "Reasoning (included in output)", total_tokens: "Session total",
+  };
+  const facts = Object.entries(labels).filter(([key]) => Object.hasOwn(usage, key)).map(([key, label]) => [label, tokenCount(usage[key])]);
+  facts.push(
+    ["Project", projectName(thread)],
+    ["Last request tokens", tokenCount(last.total_tokens)],
+    ["Reported context window", contextWindow > 0 ? tokenCount(contextWindow) : "Not reported"],
+    ["Model (latest turn)", thread.model], ["Reasoning effort", thread.reasoning_effort],
+    ["Session provider", thread.model_provider], ["Recorded Git branch", thread.git_branch],
+    ["Session client", thread.cli_version], ["Working directory", thread.cwd],
+    ["Turn", turn?.index ? String(turn.index) : ""],
+  );
+  if (thread.token_usage_at && !Number.isNaN(new Date(thread.token_usage_at).getTime())) facts.push(["Totals reported", new Date(thread.token_usage_at).toLocaleString()]);
+  $("session-facts").replaceChildren(...facts.filter(([, value]) => value).map(([label, value]) => {
+    const field = el("div");
+    field.append(el("dt", "", label), el("dd", "", value));
+    return field;
+  }));
+  $("session-note").textContent = Object.keys(usage).length ? "Reported session totals accumulate across requests. Cached input is included in input; reasoning is included in output. Context uses the last reported request and model window. Branch and client come from session metadata." : "Cumulative session usage has not been reported for this chat.";
+}
+
+function setStatusText(content, command = false) {
+  const target = $("status-text");
+  const text = typeof content === "string" ? content : "";
+  // Leave the selected text untouched when an unrelated value changes.
+  if (target.textContent === text && Boolean(target.querySelector("code")) === command) return;
+  target.replaceChildren(command ? commandCode(text) : el("p", "", text));
+}
+
+function renderStatus(thread, turn) {
+  const chat = { ...thread, next_kind: turn?.next_kind, next_text: turn?.next_text };
+  const state = attentionState(chat);
+  const status = STATUS[state] || STATUS.idle;
+  $("status-card").dataset.status = state;
+  $("status-icon").setAttribute("href", `#${status.icon}`);
+  if (state === "working") syncSpin($("status-icon"));
+  $("status-title").textContent = status.label;
   $("open-codex").href = `codex://threads/${encodeURIComponent(thread.id)}`;
   $("open-codex").hidden = false;
-  const chat = { ...thread, next_kind: turn?.next_kind, next_text: turn?.next_text };
+  $("status-body").hidden = false;
+
+  const pending = [...thread.decisions].reverse().find((d) => d.source === "asked" && d.chosen === null);
+  let kind = turn ? turn.next_kind : "unknown";
+  let label = NEXT_LABEL[kind] || "";
+  if (thread.status === "working") {
+    const step = [...thread.steps].reverse().find((step) => step.turn === turn?.index && !["turn", "user"].includes(step.kind));
+    kind = "working";
+    label = STEP_LABEL[step?.kind] || "";
+    setStatusText(step?.title || "Working on your request.", step?.kind === "command" && Boolean(step.title));
+  } else if (pending) {
+    kind = "answer";
+    label = NEXT_LABEL.answer;
+    setStatusText(pending.question);
+  } else if (kind === "none") {
+    setStatusText("No further action was requested.");
+  } else if (kind === "unknown") {
+    setStatusText("No next action was recorded.");
+  } else {
+    setStatusText(turn.next_text);
+  }
+  $("status-body").dataset.kind = kind;
+  $("next-kind").hidden = !label;
+  $("next-kind").textContent = label;
+  const options = pending && thread.status !== "working" ? pending.options : [];
+  $("next-options").hidden = options.length === 0;
+  $("next-options").replaceChildren(...options.map((option) => el("li", "", option)));
+
   $("reminder-controls").hidden = !hasAttention(chat) || !thread.attention_key;
   const dismissed = reminderDismissed(chat);
   $("reminder-toggle").textContent = dismissed ? "Restore reminder" : "Dismiss reminder";
   $("reminder-note").textContent = dismissed ? "Dismissed in this browser. The request remains open in Codex." : "Only affects this browser’s inbox. Does not answer or approve the request.";
+
+  const outcome = thread.status === "working" ? "" : turn?.outcome || "";
+  $("outcome-wrap").hidden = !outcome;
+  if ($("outcome").textContent !== outcome) $("outcome").textContent = outcome;
 }
 
 $("reminder-toggle").addEventListener("click", () => {
@@ -409,7 +351,7 @@ window.addEventListener("storage", (event) => {
 });
 
 function commandCode(command) {
-  const code = el("code", "terminal-command");
+  const code = el("code", "command");
   let commandStart = true;
   // Presentation hints only, not a shell parser; preserve every character as inert text.
   for (const token of command.match(/"(?:\\.|[^"\\])*"|'[^']*'|&&|\|\||[|;\n]|[^\s&|;]+|[&]|[^\S\n]+/g) || []) {
@@ -424,15 +366,19 @@ function commandCode(command) {
       else if (commandStart) kind = "executable";
       commandStart = false;
     }
-    code.append(kind ? el("span", `terminal-${kind}`, token) : document.createTextNode(token));
+    code.append(kind ? el("span", `command-${kind}`, token) : document.createTextNode(token));
   }
   return code;
 }
 
-function renderChanges(turn) {
+function relativePath(path, cwd) {
+  return cwd && path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
+}
+
+function renderChanges(thread, turn) {
   const files = turn ? turn.files : [];
   const checks = turn ? turn.checks : [];
-  $("changes").hidden = files.length === 0 && checks.length === 0 && $("hero-activity").hidden;
+  $("changes").hidden = files.length === 0 && checks.length === 0;
   let warning = "";
   if (turn && turn.edited_after_check) warning = "Files changed after the last check ran.";
   else if (files.length && !checks.length) warning = "No tests or linters ran after these edits.";
@@ -441,16 +387,19 @@ function renderChanges(turn) {
   $("check-warning-text").textContent = warning;
   $("checks").replaceChildren(...checks.map((check) => {
     const state = check.exit_code === null ? "unknown" : check.exit_code === 0 ? "passed" : "failed";
-    const item = el("li", "check");
+    const item = el("li", "list-row check");
     item.dataset.state = state;
-    item.append(icon(state === "unknown" ? "i-question" : state === "passed" ? "i-answer" : "i-alert"), commandCode(check.command), el("span", "check-exit", state === "unknown" ? "Exit not reported" : `exit ${check.exit_code}`));
+    const result = state === "unknown" ? "Exit not reported" : state === "passed" ? "Passed" : `Failed (exit ${check.exit_code})`;
+    item.append(icon(state === "unknown" ? "i-question" : state === "passed" ? "i-answer" : "i-alert"), commandCode(check.command), el("span", "check-result", result));
     return item;
   }));
   $("files-wrap").hidden = files.length === 0;
-  iconLabel("files-summary", "i-edit", `${files.length} ${files.length === 1 ? "file" : "files"} changed`);
+  rowLabel("files-summary", `${files.length} ${files.length === 1 ? "file" : "files"} changed`);
   $("files").replaceChildren(...files.map((path) => {
+    const relative = relativePath(path, thread.cwd);
     const item = el("li");
-    item.append(el("code", "", path.split("/").pop()), el("span", "file-dir", path.split("/").slice(0, -1).join("/")));
+    item.title = path;
+    item.append(el("code", "", relative.split("/").pop()), el("span", "file-dir", relative.split("/").slice(0, -1).join("/")));
     return item;
   }));
 }
@@ -462,40 +411,36 @@ function renderDecisions(thread) {
   const focusedKey = focused?.dataset.key;
   $("decisions-wrap").hidden = decisions.length === 0;
   const items = decisions.map(({ decision, key }) => {
-    const item = existing.get(key) || el("li", "decision");
+    const item = existing.get(key) || el("li", "list-row decision");
     const record = JSON.stringify(decision);
     if (item.dataset.record === record) return item;
     const expanded = item.querySelector("details")?.open || false;
     item.dataset.key = key;
     item.dataset.record = record;
-    const question = el("div", "decision-bubble decision-question");
     const at = new Date(decision.at);
     const when = [decision.turn ? `Turn ${decision.turn}` : "", Number.isNaN(at.getTime()) ? "" : at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · ");
-    const questionLabel = el("p", "decision-meta icon-label");
-    questionLabel.append(icon("i-question"), el("span", "", ["Question", when].filter(Boolean).join(" · ")));
-    question.append(questionLabel, el("h3", "", decision.question));
-    const answer = el("div", "decision-bubble decision-answer");
-    const answerLabel = el("p", "decision-meta icon-label");
-    answerLabel.append(icon(decision.source === "agent" ? "i-agent" : "i-user"), el("span", "", decision.source === "agent" ? "Agent decision" : "Your answer"));
-    answer.append(answerLabel, el("p", "decision-answer-text", decision.chosen || "No answer text recorded."));
-    if (decision.reason) answer.append(el("p", "reason", decision.reason));
+    const answer = el("div", "decision-answer");
+    answer.append(el("p", "decision-role", decision.source === "agent" ? "Agent decision" : "Your answer"), el("p", "decision-answer-text", decision.chosen || "No answer text recorded."));
+    item.replaceChildren(el("p", "decision-meta", ["Question", when].filter(Boolean).join(" · ")), el("h3", "", decision.question), answer);
+    if (decision.reason) item.append(el("p", "reason", decision.reason));
     const alternatives = decision.options.filter((option) => option !== decision.chosen);
     if (alternatives.length) {
       const disclosure = el("details", "decision-alternatives");
       disclosure.open = expanded;
       const summary = el("summary");
-      summary.append(icon("i-back"), el("span", "", "Other options"));
+      const chevron = icon("i-chevron");
+      chevron.classList.add("disclosure-chevron");
+      summary.append(el("span", "", `Other options (${alternatives.length})`), chevron);
       const options = el("ul", "decision-other-options");
       options.replaceChildren(...alternatives.map((option) => el("li", "", option)));
       disclosure.append(summary, options);
-      answer.append(disclosure);
+      item.append(disclosure);
     }
-    item.replaceChildren(question, answer);
     return item;
   });
   const older = items.slice(DECISION_PREVIEW_LIMIT);
   $("decision-history").hidden = older.length === 0;
-  iconLabel("decision-history-summary", "i-decision", `${older.length} earlier ${older.length === 1 ? "decision" : "decisions"}`);
+  rowLabel("decision-history-summary", "Earlier decisions", String(older.length));
   for (const [list, wanted] of [[$("decisions"), items.slice(0, DECISION_PREVIEW_LIMIT)], [$("earlier-decisions"), older]]) {
     const retained = new Set(wanted);
     for (const [index, item] of wanted.entries()) {
@@ -506,7 +451,7 @@ function renderDecisions(thread) {
   if (focusedKey && document.activeElement === document.body) {
     const item = items.find((item) => item.dataset.key === focusedKey);
     if (item?.closest(".decision-history")) $("decision-history").open = true;
-    const target = item?.querySelector("summary") || item?.querySelector("h3") || $(decisions.length ? "decisions-title" : "hero-title");
+    const target = item?.querySelector("summary") || item?.querySelector("h3") || $(decisions.length ? "decisions-title" : "status-title");
     if (!target.matches("summary")) target.tabIndex = -1;
     target.focus({ preventScroll: true });
   }
@@ -515,7 +460,7 @@ function renderDecisions(thread) {
 function renderEarlier(turns) {
   const earlier = turns.slice(0, -1).reverse();
   $("earlier-wrap").hidden = earlier.length === 0;
-  iconLabel("earlier-summary", "i-turn", `Earlier turns (${earlier.length})`);
+  rowLabel("earlier-summary", "Earlier turns", String(earlier.length));
   $("earlier").replaceChildren(...earlier.map((turn) => {
     const item = el("li", "turn-row");
     item.append(el("span", "turn-index", `Turn ${turn.index}`));
@@ -532,7 +477,7 @@ function renderTimeline(thread) {
     .filter((step) => filter === "all" || KEY_KINDS.has(step.kind) || step.status !== "done")
     .reverse()
     .slice(0, MAX_STEPS);
-  iconLabel("activity-summary", "i-message", `Activity (${thread.steps.length} steps)`);
+  rowLabel("activity-summary", "Activity", `${thread.steps.length} ${thread.steps.length === 1 ? "step" : "steps"}`);
   $("timeline-empty").hidden = steps.length > 0;
   $("timeline").replaceChildren(...steps.map((step) => {
     const item = el("li", "step");
@@ -557,29 +502,31 @@ function renderThread(thread) {
     latest = null;
     $("title").textContent = "Chat not found";
     document.title = "Chat not found · Codex companion";
-    document.querySelector(".hero").dataset.status = "idle";
-    $("hero-title").textContent = "No rollout file for this chat";
-    $("hero-text").textContent = "It may have been archived. Go back to the inbox.";
-    document.querySelector(".latest-step").dataset.active = "false";
-    $("hero-meta").hidden = true;
-    $("hero-activity").hidden = true;
-    $("hero-status-icon").setAttribute("href", "#i-turn");
-    $("latest-step-icon").setAttribute("href", "#i-alert");
-    for (const id of ["open-codex", "next", "changes", "decisions-wrap", "earlier-wrap", "activity-wrap"]) $(id).hidden = true;
+    $("subtitle").hidden = true;
+    $("status-card").dataset.status = "idle";
+    $("status-icon").setAttribute("href", "#i-alert");
+    $("status-title").textContent = "No rollout file for this chat";
+    $("status-body").hidden = false;
+    $("status-body").dataset.kind = "none";
+    $("next-kind").hidden = true;
+    setStatusText("It may have been archived. Go back to the inbox.");
+    for (const id of ["open-codex", "next-options", "reminder-controls", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
     return;
   }
-  $("next").hidden = false;
-  $("activity-wrap").hidden = false;
   latest = thread;
   const turn = thread.turns[thread.turns.length - 1];
   $("title").textContent = chatName(thread);
   document.title = `${chatName(thread)} · Codex companion`;
-  renderHero(thread, turn);
-  renderNext(thread, turn);
-  renderChanges(turn);
+  $("subtitle").hidden = false;
+  $("subtitle").textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
+  $("subtitle").title = `${thread.cwd} · last recorded event`;
+  $("more").hidden = false;
+  renderStatus(thread, turn);
+  renderChanges(thread, turn);
   renderDecisions(thread);
   renderEarlier(thread.turns);
   renderTimeline(thread);
+  renderSessionInfo(thread, turn);
   if (turn && turn.ended_at) seen.set(thread.id, turn.ended_at);
 }
 
@@ -597,8 +544,10 @@ if (threadId) {
   $("back").href = inboxStatus ? `/?status=${inboxStatus}` : "/";
   $("back-label").textContent = inboxStatus ? INBOX_FILTERS[inboxStatus].label : "Inbox";
   $("eyebrow").hidden = true;
+  $("title").textContent = "Loading";
   connect(`/api/stream?thread=${encodeURIComponent(threadId)}`, "thread", renderThread);
 } else {
   $("inbox-view").hidden = false;
+  if (inboxStatus) $("title").textContent = INBOX_FILTERS[inboxStatus].label;
   connect("/api/stream", "inbox", renderInbox);
 }

@@ -40,22 +40,23 @@
   --leading-normal: 1.4;
   --leading-relaxed: 1.55;
 
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  /* Spacing and glyphs stay fixed while text scales, as with iOS Dynamic Type. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
 
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-pill: 999px;
 
-  --size-icon: 1.125rem;
-  --size-glyph: 1.875rem;
-  --size-control: 2.75rem;
-  --size-node: 1.75rem;
+  --size-icon: 18px;
+  --size-glyph: 30px;
+  --size-control: 44px;
+  --size-node: 28px;
   --size-line: 2px;
   --size-hairline: 1px;
   --page-max: 52rem;
