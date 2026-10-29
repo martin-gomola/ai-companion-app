@@ -111,23 +111,26 @@ Codex controls.
 `src/codex_companion/static/tokens.css` owns every color, type size, spacing, radius, and motion
 value; `app.css` only consumes tokens. No UI library, remote font, or image dependency.
 
-- Palette: the companion sits next to Codex, so it uses the Codex catalog themes: GitHub Light
-  (`#f6f8fa` page, `#ffffff` surfaces, `#0969da` accent) and VS Code+ (`#171717` page, `#1e1e1e`
-  surfaces, `#007acc` accent). Status colors reuse the palette roles: added green for new results,
-  removed red for failures, skill purple for working. Two deviations keep text at 4.5:1: in dark,
-  accent text and links use `#3794ff`, with `#007acc` reserved for filled controls with white text,
-  and danger text uses `#f48771` while `#fa423e` stays the glyph fill. GitHub Light has no orange,
+- Palette: the companion sits next to Codex, so neutrals use the Codex catalog themes: GitHub
+  Light (`#f6f8fa` page, `#ffffff` surfaces) and VS Code+ (`#171717` page, `#1e1e1e` surfaces).
+  The accent is Slido Forest Green `#198038` (Slido Brand Guidelines 1.0): accent text in light
+  and every filled control with white text (5.02:1). The guide has no dark theme, so dark accent
+  text uses the Slido tertiary Green bright `#42a65f` (5.44:1 on the surface). New and passed
+  results use Slido Teal (`#28726d` light, `#22aba2` dark) so they never read as the accent.
+  Removed red marks failures and skill purple marks working. Danger text in dark uses `#f48771`
+  while `#fa423e` stays the glyph fill. Forest Green on the grey fill is 4.47:1, so hover on
+  accent-text buttons uses a 6% green tint instead. GitHub Light has no orange,
   so needs-you uses `#bc4c00`, GitHub's severe orange.
 - Windows follow Codex: opaque, flat surfaces with a 1px hairline edge and no shadow, blur, or
   ambient backdrop. The toolbar is the surface color with a bottom border. Pages sit on the grey
   page color. On the board, the inbox is the grey sidebar and an open chat is the white main pane,
   separated by a 1px border. Increased contrast strengthens every separator and edge.
 - The summary segments and the chat toolbar stay pinned over scrolling content.
-- Status color roles: orange for needs you, purple for working, green for new or passed results,
-  red for failures and stopped turns, grey for history. Blue is the accent for links, the back link,
+- Status color roles: orange for needs you, purple for working, teal for new or passed results,
+  red for failures and stopped turns, grey for history. Forest Green is the accent for links, the back link,
   selected segments, and Open in Codex. Color always accompanies a label or glyph.
 - Pictograms carry the structure so a long chat stays scannable. Every section title starts with a
-  tinted icon chip in its role color: What happened (blue, message), Changes and checks (green,
+  tinted icon chip in its role color: What happened (green, message), Changes and checks (teal,
   terminal), Decisions (purple, branch), More (grey); inbox sections use their status color and
   glyph. Disclosure rows lead with a muted icon. The agent's decision sits in a 6% purple-tinted
   block under a purple label.

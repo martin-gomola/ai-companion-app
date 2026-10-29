@@ -269,3 +269,13 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   opened at full height, and no animations were running.
 - Metadata at 13px and the 17px next step showed no overflow or controls under 44px at 320, 390,
   and 430px in both themes, at 200% text, or on the board at 1024, 1280, and 1440px; 31 tests pass.
+
+## Slido Forest Green accent on 2026-10-29
+
+- The blue accent is replaced by Slido Forest Green `#198038` (dark text `#42a65f`), and new or
+  passed results move to Slido Teal so they stay distinct from the accent. Computed contrast:
+  Forest Green on white 5.02:1, white on Forest Green 5.02:1 (6.1:1 on hover), Forest Green on
+  its 6% tint 4.62:1, dark `#42a65f` on the surface 5.44:1, teal 5.65:1 light and 5.89:1 dark,
+  and status inks on the selected-row green tint at least 4.64:1. Forest Green on the grey fill is
+  4.47:1, so the bordered button hover uses the green tint. Phone, 200% text, and board views in
+  both themes showed no overflow or controls under 44px; 31 tests pass.

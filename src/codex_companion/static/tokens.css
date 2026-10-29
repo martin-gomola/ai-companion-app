@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  /* Light matches the Codex "GitHub Light" theme; dark matches "VS Code+". */
+  /* Neutrals match the Codex "GitHub Light" and "VS Code+" themes; the accent is Slido Forest Green. */
   --color-bg: #f6f8fa;
   --color-surface: #ffffff;
   --color-surface-pressed: rgb(129 139 152 / 0.08);
@@ -9,8 +9,8 @@
   --color-border-strong: #818b98;
   --color-text: #1f2328;
   --color-text-muted: #59636e;
-  --color-accent: #0969da;
-  --color-accent-fill: #0969da;
+  --color-accent: #198038;
+  --color-accent-fill: #198038;
   --color-on-accent: #ffffff;
 
   --edge: inset 0 0 0 var(--size-hairline) var(--color-separator);
@@ -21,8 +21,9 @@
   --color-waiting-soft: #fff1e5;
   --color-working: #8250df;
   --color-working-fill: #8250df;
-  --color-new: #1a7f37;
-  --color-new-fill: #1a7f37;
+  /* New results use Slido Teal so they never read as the green accent. */
+  --color-new: #28726d;
+  --color-new-fill: #28726d;
   --color-danger: #cf222e;
   --color-danger-fill: #cf222e;
   --color-history-fill: #818b98;
@@ -87,8 +88,8 @@
   --color-border-strong: #858585;
   --color-text: #cccccc;
   --color-text-muted: #9d9d9d;
-  --color-accent: #3794ff;
-  --color-accent-fill: #007acc;
+  --color-accent: #42a65f;
+  --color-accent-fill: #198038;
   --color-on-accent: #ffffff;
 
   --color-waiting: #e5a33b;
@@ -96,8 +97,8 @@
   --color-waiting-soft: #3a2a14;
   --color-working: #ad7bf9;
   --color-working-fill: #ad7bf9;
-  --color-new: #40c977;
-  --color-new-fill: #40c977;
+  --color-new: #22aba2;
+  --color-new-fill: #22aba2;
   --color-danger: #f48771;
   --color-danger-fill: #fa423e;
   --color-history-fill: #6e6e6e;

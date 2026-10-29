@@ -194,7 +194,7 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 .row:active, .show-all:active, details > summary:active { background: var(--color-surface-pressed); }
 @media (hover: hover) and (pointer: fine) {
   .row:hover, .show-all:hover, .segment:not([aria-current]):hover, details > summary:hover { background: var(--color-surface-pressed); }
-  .button:hover { background: var(--color-fill); }
+  .button:hover { background: color-mix(in srgb, var(--color-accent-fill) var(--tint-soft), var(--color-surface)); }
   .icon-button:hover { background: color-mix(in srgb, var(--color-text) 8%, transparent); color: var(--color-text); }
   .open-codex:hover { background: color-mix(in srgb, var(--color-accent-fill) 88%, black); }
 }
