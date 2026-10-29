@@ -103,17 +103,26 @@ Codex controls.
 `src/codex_companion/static/tokens.css` owns every color, type size, spacing, radius, and motion
 value; `app.css` only consumes tokens. No UI library, remote font, or image dependency.
 
-- Light: grouped-list grey canvas, white rows and cards, black text, hairline separators.
-  Dark: black canvas, graphite rows, white text. Both use iOS-style system hues.
+- Material: Liquid Glass. A fixed, soft ambient backdrop (blue, pink, and mint glows in light;
+  deep navy, plum, and teal in dark) sits behind translucent glass layers: lists, cards, summary
+  segments, and capsule controls (back, live state, Close, secondary buttons, chips). Glass uses
+  backdrop blur and saturation, a bright inner top edge, and a soft drop shadow. Text contrast is
+  computed against glass composited over the darkest and lightest backdrop points.
+- Reduced transparency and increased contrast replace glass and backdrop with opaque surfaces;
+  increased contrast also strengthens separators and edges. Without backdrop-filter support glass
+  becomes nearly opaque.
+- The summary segments and the chat back bar float over scrolling content; the bar uses a soft
+  fade instead of a hard edge.
 - Status color roles: orange for needs you, purple for working, green for new or passed results,
   red for failures and stopped turns, grey for history. Blue is the accent for links, the back link,
   selected segments, and Open in Codex. Color always accompanies a label or glyph.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
-  Mono only for commands and paths. Section headers are small uppercase labels outside the groups.
-- Groups and cards use 12px corners and no shadow. Separators are inset to the text column.
-- Motion: the working glyph rotates continuously without restarting on updates; nothing else
-  animates. Reduced motion stops it. The sticky header blurs content behind it and becomes opaque
-  under reduced transparency or without backdrop-filter support.
+  Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.
+- Groups and cards use 22px corners; controls are capsules; inner shapes stay concentric.
+  Separators are inset to the text column. Filled actions (Open in Codex, selected segment and
+  chip) carry a light top edge and an accent glow; status glyphs have a subtle top gloss.
+- Motion: the working glyph rotates continuously without restarting on updates, and capsule
+  controls shrink slightly while pressed. Reduced motion removes both.
 
 ## Accessibility
 
