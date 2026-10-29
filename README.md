@@ -15,7 +15,7 @@
 
 <img src="docs/images/inbox.png" width="260" align="top" alt="Dark theme inbox with status filters and sections for chats that need you, are working, and have new results">
 <img src="docs/images/chat-waiting.png" width="260" align="top" alt="Chat waiting for an answer, with the question, its options, a reminder bell, and the checks that ran">
-<img src="docs/images/chat-done.png" width="260" align="top" alt="Finished chat with a recap of the whole chat, decisions, and every file the chat changed">
+<img src="docs/images/chat-done.png" width="260" align="top" alt="Finished chat with a recap of the whole chat, the latest turn, its passing check, and your decision">
 
 <sub>Screenshots use made-up demo chats from <code>make screenshots</code>, not real session data.</sub>
 
@@ -31,8 +31,16 @@ outcome, the decision it is waiting for, or whether the tests ran after the last
 transcript to find that is slow, and with several chats open it is easy to miss the one that is
 blocked on me.
 
-The companion answers three questions per chat: does it need me, what happened, and what do I do
-next. It does not control Codex. It only reads, and every action happens back in the Codex app.
+The companion answers three questions per chat:
+
+| Question | Where the answer is |
+| --- | --- |
+| Does it need me? | The status (Needs you, Working, or Done) and the Needs you count in the inbox |
+| What happened? | The recap and outcome, the files the chat changed, and the checks it ran |
+| What do I do next? | The next step, with **Open in Codex** to act on it |
+
+> [!NOTE]
+> The companion does not control Codex. It only reads, and every action happens back in the Codex app.
 
 The path from a busy afternoon of chats to the next action is:
 

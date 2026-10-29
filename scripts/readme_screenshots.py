@@ -232,18 +232,15 @@ def main() -> None:
                 desk.screenshot(path=str(OUT / "board.png"))
                 print("wrote docs/images/board.png")
 
-                shots = (("inbox", "/", False), ("chat-waiting", f"/?thread={chats[0].id}", False),
-                         ("chat-done", f"/?thread={chats[1].id}", True))
-                for name, path, files in shots:
+                shots = (("inbox", "/"), ("chat-waiting", f"/?thread={chats[0].id}"),
+                         ("chat-done", f"/?thread={chats[1].id}"))
+                for name, path in shots:
                     # A fresh context per shot: opening a chat marks its result as seen.
+                    # One fixed viewport keeps the side-by-side README images the same height.
                     page = browser.new_page(viewport={"width": 420, "height": 900}, device_scale_factor=2,
                                             color_scheme="dark", reduced_motion="reduce")
                     page.goto(base + path)
                     page.wait_for_timeout(1200)
-                    if files:
-                        page.locator("#session-files-summary").click()
-                        page.wait_for_timeout(300)
-                    page.set_viewport_size({"width": 420, "height": page.evaluate("document.documentElement.scrollHeight")})
                     page.screenshot(path=str(OUT / f"{name}.png"))
                     page.close()
                     print(f"wrote docs/images/{name}.png")
