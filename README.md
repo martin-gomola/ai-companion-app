@@ -52,7 +52,11 @@ make up
 ```
 
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787) for the inbox, or `/?thread=<thread_id>` for one
-chat. It works in a normal browser and in the Codex in-app browser.
+chat. It works in a normal browser and in the Codex in-app browser, where it sits beside the chat:
+
+<img src="docs/images/in-codex.png" width="800" alt="Mock Codex window with a chat on the left and the companion in the in-app browser on the right, showing the chat waiting for an answer and its passing check">
+
+<sub>A mock Codex window with a made-up demo chat, rendered by <code>make screenshots</code>.</sub>
 
 To get structured recaps, install the plugin and restart Codex:
 
