@@ -302,7 +302,11 @@ function renderStatus(thread, turn) {
     const step = [...thread.steps].reverse().find((step) => step.turn === turn?.index && !["turn", "user"].includes(step.kind));
     kind = "working";
     label = STEP_LABEL[step?.kind] || "";
-    setStatusText(step?.title || "Working on your request.", step?.kind === "command" && Boolean(step.title));
+    const listed = (step?.kind === "edit" && turn?.files.length > 0) || (step?.kind === "command" && turn?.checks.some((check) => check.command === step.title));
+    if (listed) {
+      setStatusText(`${label}, shown under Changes and checks.`);
+      label = "";
+    } else setStatusText(step?.title || "Working on your request.", step?.kind === "command" && Boolean(step.title));
   } else if (pending) {
     kind = "answer";
     label = NEXT_LABEL.answer;
