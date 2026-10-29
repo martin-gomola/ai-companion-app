@@ -23,7 +23,7 @@ PAGE_POLICY = (
     "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; "
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
-ASSET_TYPES = {"tokens.css": "text/css", "app.css": "text/css", "app.js": "text/javascript", "theme.js": "text/javascript"}
+ASSET_TYPES = {".css": "text/css", ".js": "text/javascript"}
 
 
 def _static(name: str) -> str:
@@ -57,9 +57,10 @@ def create_app(
 
     @app.get("/assets/{name}")
     def asset(name: str) -> Response:
-        if name not in ASSET_TYPES:
+        media_type = ASSET_TYPES.get(Path(name).suffix)
+        if media_type is None or name not in {entry.name for entry in files("codex_companion").joinpath("static").iterdir()}:
             raise HTTPException(status_code=404)
-        return Response(_static(name), media_type=ASSET_TYPES[name])
+        return Response(_static(name), media_type=media_type)
 
     @app.get("/api/inbox")
     def inbox() -> list[dict[str, Any]]:

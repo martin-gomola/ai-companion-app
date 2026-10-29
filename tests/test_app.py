@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from pathlib import Path
 
 from conftest import OTHER, SUBAGENT, THREAD, event, item, meta, write_rollout
@@ -66,8 +67,12 @@ def test_serves_page_with_policy_and_only_loopback(codex_home: Path) -> None:
 
     assert page.status_code == 200 and "script-src 'self'" in page.headers["content-security-policy"]
     assert app.get("/assets/app.js").headers["content-type"].startswith("text/javascript")
-    assert app.get("/assets/theme.js").headers["content-type"].startswith("text/javascript")
+    referenced = re.findall(r'(?:src|href)="(/assets/[^"]+)"', page.text)
+    assert referenced and all(app.get(path).status_code == 200 for path in referenced)
     assert app.get("/assets/secrets.txt").status_code == 404
+    assert app.get("/assets/index.html").status_code == 404
+    assert app.get("/assets/missing.js").status_code == 404
+    assert app.get("/assets/..%2Fapp.py").status_code == 404
     evil = TestClient(create_app(codex_home), base_url="http://evil.example")
     assert evil.get("/").status_code == 400
 
