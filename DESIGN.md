@@ -59,13 +59,14 @@ Codex controls.
   scroll on their own; the page itself does not scroll. Cards cannot be dragged: a chat's column
   follows its state in Codex.
 - A selected segment narrows the board to that one column.
-- Clicking a card opens that chat in a panel on the right while the board stays visible. The panel
-  shows the chat page content under its own title, subtitle, and Close button. The open card is
-  marked as current. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
+- Clicking a card opens that chat in a panel on the right. The open chat is the priority, so the
+  panel takes most of the width (content capped at the reading width) and the board collapses into
+  the phone list beside it: a 320–400px column with sections stacked, empty sections omitted, and
+  its own scroll. The panel shows the chat page content under its own title, subtitle, and Close
+  button. The open chat is marked current with a tinted row and an accent edge, scrolled into view.
+  Closing the panel restores the columns. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
   Escape closes it and returns focus to the card. Modified clicks (new tab or window) still open the
   full chat page. Narrowing the window below 900px with a panel open switches to the chat page.
-- With the panel open, columns keep a minimum width and the board scrolls sideways when needed.
-
 ## Chat page
 
 - A sticky row with the back link on the left and the same live-state and theme capsule on the

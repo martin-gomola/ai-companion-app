@@ -223,8 +223,9 @@ function renderInbox(chats) {
   const groups = new Map(SECTIONS.map(({ key }) => [key, []]));
   for (const chat of chats) groups.get(sectionOf(chat)).push(chat);
   for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  // The board keeps every column in place; the list drops empty sections.
-  const shown = SECTIONS.filter(({ key }) => inboxStatus ? key === inboxStatus && groups.get(key).length > 0 : board.matches || groups.get(key).length > 0);
+  // The board keeps every column in place; the list, also used beside an open panel, drops empty sections.
+  const columns = board.matches && !openId;
+  const shown = SECTIONS.filter(({ key }) => inboxStatus ? key === inboxStatus && groups.get(key).length > 0 : columns || groups.get(key).length > 0);
   $("sections").replaceChildren(...shown.map((section) => renderSection(section, groups.get(section.key))));
   $("inbox-empty").hidden = chats.length > 0;
   $("filter-empty").hidden = !inboxStatus || shown.length > 0 || chats.length === 0;
@@ -597,20 +598,18 @@ function showPanel(id) {
   openId = id;
   document.body.dataset.panel = id ? "open" : "closed";
   $("thread-view").hidden = !id;
-  for (const row of $("sections").querySelectorAll(".row")) {
-    if (new URLSearchParams(row.search).get("thread") === id) row.setAttribute("aria-current", "true");
-    else row.removeAttribute("aria-current");
-  }
+  if (inboxData) renderInbox(inboxData);
   if (!id) return;
+  cardFor(id)?.scrollIntoView({ block: "nearest" });
   resetThread();
   threadSource = connect(`/api/stream?thread=${encodeURIComponent(id)}`, "thread", renderThread);
 }
 
 function closePanel() {
-  const card = cardFor(openId);
+  const id = openId;
   history.pushState(null, "", panelUrl(""));
   showPanel("");
-  card?.focus();
+  cardFor(id)?.focus();
 }
 
 if (!threadId) {

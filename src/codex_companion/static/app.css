@@ -295,35 +295,44 @@ details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
     max-width: none; height: 100dvh; padding: 0 var(--space-6) var(--space-2);
     grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--space-3) 0;
   }
-  body[data-panel="open"] .page { grid-template-columns: minmax(0, 1fr) minmax(360px, 38%); }
+  body[data-panel="open"] .page { grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); }
   body[data-view="inbox"] .bar, body[data-view="inbox"] .footer { grid-column: 1 / -1; }
   body[data-view="inbox"] #inbox-view { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
   body[data-view="inbox"] .segments {
     position: static; max-width: 40rem;
   }
 
-  #sections {
+  /* Columns while no chat is open. */
+  body:not([data-panel="open"]) #sections {
     display: grid; flex: 1; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: var(--space-4);
     min-height: 0; overflow-x: auto;
   }
-  body[data-panel="open"] #sections { padding-inline-end: var(--space-5); }
-  #sections > .group:only-child { max-width: var(--page-max); }
-  #sections .group { grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
-  #sections .list {
+  body:not([data-panel="open"]) #sections > .group:only-child { max-width: var(--page-max); }
+  body:not([data-panel="open"]) #sections .group { grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+  body:not([data-panel="open"]) #sections .list {
     display: grid; align-content: start; gap: var(--space-2);
     padding-bottom: var(--space-4); overflow-y: auto; overscroll-behavior: contain;
     border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
   }
-  #sections .list > li {
+  body:not([data-panel="open"]) #sections .list > li {
     border-radius: var(--radius-lg); background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-edge);
   }
-  #sections .list > li::before { content: none; }
-  #sections .row-chevron { display: none; }
+  body:not([data-panel="open"]) #sections .list > li::before { content: none; }
+  body:not([data-panel="open"]) #sections .row-chevron { display: none; }
   #sections .column-empty { padding: var(--space-4); border: var(--size-hairline) dashed var(--color-border-strong); background: none; text-align: center; }
 
+  /* With a chat open, the panel leads and the inbox becomes the phone list beside it. */
+  body[data-panel="open"] #sections {
+    display: grid; flex: 1; align-content: start; gap: var(--space-6);
+    min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-5) var(--space-4) 0;
+  }
+  body[data-panel="open"] .row[aria-current="true"] {
+    border-radius: 0; background: var(--color-surface-pressed); box-shadow: inset var(--space-1) 0 0 var(--color-accent);
+  }
+
   body[data-view="inbox"] #thread-view {
-    grid-row: 2; grid-column: 2; grid-auto-rows: max-content; align-content: start; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    grid-row: 2; grid-column: 2; grid-template-columns: minmax(0, var(--page-max)); grid-auto-rows: max-content; align-content: start; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
     padding: 0 var(--space-1) var(--space-6) var(--space-5); border-inline-start: var(--size-hairline) solid var(--color-separator);
   }
   .panel-head { position: sticky; top: 0; z-index: 1; padding-block: var(--space-2) var(--space-4); background: var(--bar-fade); }

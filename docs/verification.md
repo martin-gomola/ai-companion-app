@@ -200,3 +200,10 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - List and chat views at 320, 390, and 430px in both themes, 200% text, and the board and panel at
   900 and 1440px showed no overflow or controls under 44px. Increased contrast in dark still
   rendered opaque cards. Side-by-side comparison with a running Codex window was not done.
+
+## Board list beside an open chat on 2026-10-29
+
+- With a chat open at 900 and 1440px in both themes, the board collapsed into one scrolling list
+  column with no empty-section placeholders, the panel took the remaining width, and the open chat
+  was tinted, marked current, and scrolled into view. Escape and Close restored the columns and
+  returned focus to the card; browser back reopened the panel. No overflow or controls under 44px.
