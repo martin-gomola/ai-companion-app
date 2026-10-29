@@ -76,7 +76,7 @@ function syncSpin(use) {
 }
 
 const ROW_ICONS = {
-  "files-summary": "i-edit", "decision-history-summary": "i-decision", "earlier-summary": "i-turn",
+  "files-summary": "i-edit", "session-files-summary": "i-edit", "decision-history-summary": "i-decision", "earlier-summary": "i-turn",
   "activity-summary": "i-thinking", "session-summary": "i-agent",
 };
 
@@ -491,13 +491,27 @@ function renderChanges(thread, turn) {
   }));
   $("files-wrap").hidden = files.length === 0;
   rowLabel("files-summary", `${files.length} ${files.length === 1 ? "file" : "files"} changed`);
-  $("files").replaceChildren(...files.map((path) => {
-    const relative = relativePath(path, thread.cwd);
-    const item = el("li");
-    item.title = path;
-    item.append(el("code", "", relative.split("/").pop()), el("span", "file-dir", relative.split("/").slice(0, -1).join("/")));
-    return item;
-  }));
+  $("files").replaceChildren(...files.map((path) => fileItem(path, thread.cwd)));
+}
+
+function fileItem(path, cwd, note = "") {
+  const relative = relativePath(path, cwd);
+  const item = el("li");
+  item.title = path;
+  const dir = relative.split("/").slice(0, -1).join("/");
+  item.append(el("code", "", relative.split("/").pop()), el("span", "file-dir", [dir, note].filter(Boolean).join(" · ")));
+  return item;
+}
+
+// Every file the session touched, newest first; shown only when earlier turns changed files too.
+function renderSessionFiles(thread, turn) {
+  const turnsByPath = new Map();
+  for (const each of thread.turns) for (const path of each.files) turnsByPath.set(path, [...(turnsByPath.get(path) || []), each.index]);
+  const onlyLatest = [...turnsByPath.values()].every((turns) => turns.length === 1 && turns[0] === turn?.index);
+  $("session-files-wrap").hidden = turnsByPath.size === 0 || onlyLatest;
+  rowLabel("session-files-summary", "Files changed", `${turnsByPath.size} ${turnsByPath.size === 1 ? "file" : "files"}`);
+  const paths = [...turnsByPath].sort(([, a], [, b]) => b.at(-1) - a.at(-1));
+  $("session-files").replaceChildren(...paths.map(([path, turns]) => fileItem(path, thread.cwd, `${turns.length === 1 ? "Turn" : "Turns"} ${turns.join(", ")}`)));
 }
 
 function renderDecisions(thread) {
@@ -623,6 +637,7 @@ function renderThread(thread) {
   renderChanges(thread, turn);
   renderDecisions(thread);
   renderEarlier(thread.turns);
+  renderSessionFiles(thread, turn);
   renderTimeline(thread);
   renderSessionInfo(thread, turn);
   if (turn && turn.ended_at) seen.set(thread.id, turn.ended_at);

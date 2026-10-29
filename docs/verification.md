@@ -279,3 +279,9 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   and status inks on the selected-row green tint at least 4.64:1. Forest Green on the grey fill is
   4.47:1, so the bordered button hover uses the green tint. Phone, 200% text, and board views in
   both themes showed no overflow or controls under 44px; 31 tests pass.
+
+## Session-wide Files changed on 2026-10-29
+
+- A two-turn demo chat showed Files changed with 3 files, newest first (`db.ts` Turns 1, 2;
+  `migrate.ts` Turn 2; `schema.sql` Turn 1) at 390px light and 320px dark, with no overflow or
+  controls under 44px. A chat whose edits were all in its latest turn hid the row. 31 tests pass.
