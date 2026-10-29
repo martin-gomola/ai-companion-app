@@ -1,75 +1,44 @@
 :root {
-  color-scheme: light;
-  --color-bg: #e9eef1;
+  color-scheme: light dark;
+  --color-bg: #f2f2f7;
   --color-surface: #ffffff;
-  --color-surface-muted: #f3f6f8;
-  --color-surface-hover: #e9f0f3;
-  --color-border: #d9e1e5;
-  --color-border-strong: #78858c;
-  --color-text: #1e282d;
-  --color-text-muted: #3c4d55;
-  --color-text-faint: #8d9ba2;
-  --color-action: #20282b;
-  --color-action-hover: #35434a;
-  --color-on-action: #ffffff;
-  --color-primary: #395917;
-  --color-primary-strong: #2d4513;
-  --color-primary-soft: #e7eee2;
-  --color-on-primary: #ffffff;
-  --color-purple: #595d75;
-  --color-purple-soft: #e7e7ef;
-  --color-warning: #a47a37;
-  --color-warning-soft: #f1e8d6;
-  --color-warning-strong: #765626;
-  --color-danger: #99140b;
-  --color-danger-soft: #f7e6e2;
-  --color-focus: #395917;
+  --color-surface-pressed: #e5e5ea;
+  --color-fill: #e9e9ee;
+  --color-separator: #c6c6c8;
+  --color-border-strong: #8a8a8e;
+  --color-text: #000000;
+  --color-text-muted: #636366;
+  --color-accent: #0062cc;
+  --color-on-accent: #ffffff;
+  --color-header: rgb(242 242 247 / 0.82);
 
-  /* Sonokai Andromeda: the terminal keeps its own dark surface in both app themes. */
-  --terminal-bg: #2b2d3a;
-  --terminal-header: #252630;
-  --terminal-border: #5a5e7a;
-  --terminal-text: #e1e3e4;
-  --terminal-muted: #b5bacb;
-  --terminal-green: #9ed06c;
-  --terminal-blue: #6dcae8;
-  --terminal-purple: #bb97ee;
-  --terminal-yellow: #edc763;
-  --terminal-red: #fb617e;
-  --terminal-warning-bg: #4e432f;
+  /* Status roles: ink is for text, fill sits behind an on-status glyph. */
+  --color-waiting: #a34600;
+  --color-waiting-fill: #c75300;
+  --color-waiting-soft: #fff1e0;
+  --color-working: #8034a8;
+  --color-working-fill: #8a3ab5;
+  --color-new: #1b6e30;
+  --color-new-fill: #23843a;
+  --color-danger: #c50013;
+  --color-danger-fill: #d70015;
+  --color-history-fill: #8a8a8e;
+  --color-on-status: #ffffff;
 
-  --inbox-waiting-bg: #fff0cd;
-  --inbox-waiting-ink: #765018;
-  --inbox-working-bg: #eeebfa;
-  --inbox-working-ink: #4b3988;
-  --inbox-new-bg: #e2f1df;
-  --inbox-new-ink: #2d4d21;
-  --inbox-project-bg: #e9f3f7;
-  --inbox-project-ink: #215e78;
-  --inbox-working-solid: #5946a2;
-  --inbox-working-glow: #7460bd;
-  --inbox-on-working: #ffffff;
-  --motion-inbox-enter: 320ms;
-  --glass-surface: rgb(255 255 255 / 0.72);
-  --glass-border: rgb(152 174 186 / 0.6);
-  --glass-highlight: rgb(255 255 255 / 0.85);
-  --glass-shadow: 0 12px 32px rgb(27 47 60 / 0.09);
-
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
-  --text-xl: 2.25rem;
+  --text-xl: 2rem;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
-  --tracking-label: 0;
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.6;
+  --leading-tight: 1.2;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.55;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -81,60 +50,45 @@
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
-  --radius-lg: 1rem;
   --radius-pill: 999px;
-  --shadow-card: 0 1px 2px rgb(16 28 36 / 0.04), 0 8px 24px rgb(16 28 36 / 0.04);
 
   --size-icon: 1.125rem;
-  --size-icon-badge: 2.25rem;
+  --size-glyph: 1.875rem;
   --size-control: 2.75rem;
   --size-node: 1.75rem;
   --size-line: 2px;
+  --size-hairline: 1px;
   --page-max: 52rem;
+  --blur-header: 20px;
   --motion-fast: 120ms;
-  --motion-enter: 180ms;
-  --motion-status-attention: 1.2s;
   --motion-status-working: 1.4s;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --color-bg: #171d21;
-  --color-surface: #222b31;
-  --color-surface-muted: #2c3840;
-  --color-surface-hover: #303e46;
-  --color-border: #3f505b;
-  --color-border-strong: #8799a3;
-  --color-text: #f1f5f7;
-  --color-text-muted: #d0dde3;
-  --color-text-faint: #80929d;
-  --color-action: #f1f5f7;
-  --color-action-hover: #d5e0e5;
-  --color-on-action: #1e282d;
-  --color-primary: #bed59e;
-  --color-primary-strong: #d2e6b6;
-  --color-primary-soft: #364936;
-  --color-on-primary: #202b19;
-  --color-purple: #d0d1ea;
-  --color-purple-soft: #3b4055;
-  --color-warning: #d8b16c;
-  --color-warning-soft: #493c27;
-  --color-warning-strong: #f0ce90;
-  --color-danger: #ffb4a9;
-  --color-danger-soft: #4c3032;
-  --color-focus: #d2e6b6;
-  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.16);
-  --inbox-waiting-bg: #423421;
-  --inbox-waiting-ink: #f0ce90;
-  --inbox-working-bg: #343044;
-  --inbox-working-ink: #d6c7ff;
-  --inbox-new-bg: #293e30;
-  --inbox-new-ink: #c4e3b5;
-  --inbox-project-bg: #263b45;
-  --inbox-project-ink: #a1d9eb;
-  --glass-surface: rgb(34 43 49 / 0.78);
-  --glass-border: rgb(154 183 201 / 0.3);
-  --glass-highlight: rgb(255 255 255 / 0.08);
-  --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.24);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #000000;
+    --color-surface: #1c1c1e;
+    --color-surface-pressed: #2c2c2e;
+    --color-fill: #2c2c2e;
+    --color-separator: #38383a;
+    --color-border-strong: #8d8d93;
+    --color-text: #ffffff;
+    --color-text-muted: #aeaeb2;
+    --color-accent: #4aa3ff;
+    --color-on-accent: #000000;
+    --color-header: rgb(0 0 0 / 0.78);
+
+    --color-waiting: #ffa53a;
+    --color-waiting-fill: #ff9f0a;
+    --color-waiting-soft: #3a2a14;
+    --color-working: #d38cff;
+    --color-working-fill: #bf5af2;
+    --color-new: #4cd471;
+    --color-new-fill: #30d158;
+    --color-danger: #ff6961;
+    --color-danger-fill: #ff453a;
+    --color-history-fill: #8d8d93;
+    --color-on-status: #000000;
+  }
 }
