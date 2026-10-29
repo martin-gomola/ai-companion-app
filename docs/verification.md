@@ -158,3 +158,14 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   against about 1680px for the project-card layout with the same chats.
 - The iOS Simulator is not installed, so Safari on iPhone, VoiceOver, and reduced transparency in
   WebKit were not checked.
+
+## Board layout on 2026-10-29
+
+- Rendered in Chromium at 1440x900 and 900x800 in light and dark, with the panel closed and open.
+  No view scrolled the page or overflowed sideways, and no control was shorter than 44px.
+- Opening a card set `?open=<id>` and marked one card current; opening another card switched the
+  panel; Escape closed it and returned focus to the card; browser back reopened it. Narrowing the
+  window to 700px or loading `?open=` below 900px moved to the chat page. A selected segment
+  showed one column capped at the reading width.
+- The list and chat page layouts at 320, 390, and 430px and 200% text were re-checked with no
+  overflow or small targets. Safari, VoiceOver, and real multi-monitor setups were not checked.
