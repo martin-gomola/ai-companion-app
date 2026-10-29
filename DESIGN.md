@@ -15,6 +15,8 @@ Codex controls.
 
 - A browser pane from 320px wide to desktop, reading column capped at 52rem. Pointer, keyboard, and
   touch all work; nothing depends on hover.
+- From 900px wide, for example on a separate monitor, the inbox becomes a full-width board (see
+  Board). Below 900px it is the list described in Inbox.
 - The page follows the system light or dark appearance. There is no in-page theme switch.
 - iOS patterns are borrowed where they help scanning: large titles, inset grouped lists, segmented
   filters, disclosure rows, and system colors. Phone-only chrome (tab bars, bottom toolbars above a
@@ -43,6 +45,21 @@ Codex controls.
   Review, ...), New when unseen, and the project name. A chevron marks it as navigation. Rows are at
   least 44px tall and the whole row is the link.
 - Filtered chat links keep their return scope; the chat page's back link returns to it.
+
+## Board
+
+- The same header, summary segments, and sections, laid out as a read-only kanban: one column each
+  for Needs you, Working, New results, and Earlier, always in that order and always present, with an
+  empty placeholder when a column has no chats. Columns show every chat as a separate card and
+  scroll on their own; the page itself does not scroll. Cards cannot be dragged: a chat's column
+  follows its state in Codex.
+- A selected segment narrows the board to that one column.
+- Clicking a card opens that chat in a panel on the right while the board stays visible. The panel
+  shows the chat page content under its own title, subtitle, and Close button. The open card is
+  marked as current. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
+  Escape closes it and returns focus to the card. Modified clicks (new tab or window) still open the
+  full chat page. Narrowing the window below 900px with a panel open switches to the chat page.
+- With the panel open, columns keep a minimum width and the board scrolls sideways when needed.
 
 ## Chat page
 
@@ -106,7 +123,8 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
   always also text.
 - Text scales to 200% without clipping or horizontal scrolling at 320px. Below 480px, explanatory
   text (requests, outcomes, reasons, commands) uses 16px; short labels and times stay compact.
-- The page owns scrolling: no fixed overlays or nested scroll regions besides the sticky header.
+- In the list and chat page layouts the page owns scrolling: no fixed overlays or nested scroll
+  regions besides the sticky header. Only the board scrolls by column and panel.
 - Reachable states: loading, live and reconnecting, empty inbox, empty filter, long titles,
   waiting, working, done, stopped, dismissed, missing chat, known and unknown next steps, passed,
   failed, unreported, and stale checks.

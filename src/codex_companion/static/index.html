@@ -59,6 +59,13 @@
   </div>
 
   <div id="thread-view" hidden>
+    <div class="panel-head" id="panel-head" hidden>
+      <div class="panel-heading">
+        <h2 id="panel-title" tabindex="-1">Loading</h2>
+        <p class="subtitle" id="panel-subtitle"></p>
+      </div>
+      <button type="button" class="button" id="panel-close">Close</button>
+    </div>
     <section class="card status-card" id="status-card" aria-labelledby="status-title" data-status="idle">
       <div class="status-head">
         <span class="glyph"><svg aria-hidden="true"><use id="status-icon" href="#i-turn"/></svg></span>

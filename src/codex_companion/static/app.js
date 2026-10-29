@@ -38,13 +38,18 @@ const SECTIONS = [
   { key: "earlier", label: "Earlier" },
 ];
 
-const threadId = new URLSearchParams(location.search).get("thread") || "";
-const statusParam = new URLSearchParams(location.search).get("status");
+const params = new URLSearchParams(location.search);
+const threadId = params.get("thread") || "";
+const statusParam = params.get("status");
 const inboxStatus = Object.hasOwn(INBOX_FILTERS, statusParam) ? statusParam : "";
 const inboxReturn = inboxStatus ? `&status=${inboxStatus}` : "";
 document.body.dataset.view = threadId ? "thread" : "inbox";
-let latest = null;
+const board = matchMedia("(min-width: 900px)");
+let inboxData = null;
+let threadData = null;
 let filter = "key";
+let openId = "";
+let threadSource = null;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -119,6 +124,7 @@ function connect(url, event, render) {
   source.onopen = () => setConnection("live", "Live");
   source.onerror = () => setConnection("offline", "Reconnecting");
   source.addEventListener(event, (message) => render(JSON.parse(message.data)));
+  return source;
 }
 
 // Inbox
@@ -164,6 +170,7 @@ function renderRow(chat) {
   link.href = `/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`;
   link.dataset.status = state;
   link.dataset.unread = String(unread);
+  if (chat.id === openId) link.setAttribute("aria-current", "true");
   const glyph = el("span", "glyph");
   glyph.append(icon(status.icon));
   if (state === "working") syncSpin(glyph.querySelector("use"));
@@ -188,7 +195,7 @@ function renderRow(chat) {
 }
 
 function renderSection({ key, label }, chats) {
-  const capped = !inboxStatus && key !== "earlier" && chats.length > SECTION_LIMIT;
+  const capped = !inboxStatus && !board.matches && key !== "earlier" && chats.length > SECTION_LIMIT;
   const wrap = el("section", "group");
   wrap.dataset.section = key;
   const title = el("h2", "group-title");
@@ -197,6 +204,7 @@ function renderSection({ key, label }, chats) {
   wrap.setAttribute("aria-labelledby", title.id);
   const list = el("ol", "list");
   list.replaceChildren(...chats.slice(0, capped ? SECTION_LIMIT : chats.length).map(renderRow));
+  if (chats.length === 0) list.append(el("li", "empty column-empty", "No chats"));
   if (capped) {
     const item = el("li");
     const more = el("a", "show-all");
@@ -210,12 +218,13 @@ function renderSection({ key, label }, chats) {
 }
 
 function renderInbox(chats) {
-  latest = chats;
+  inboxData = chats;
   const focusedHref = document.activeElement.closest(".row, .show-all")?.getAttribute("href");
   const groups = new Map(SECTIONS.map(({ key }) => [key, []]));
   for (const chat of chats) groups.get(sectionOf(chat)).push(chat);
   for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  const shown = SECTIONS.filter(({ key }) => (!inboxStatus || key === inboxStatus) && groups.get(key).length > 0);
+  // The board keeps every column in place; the list drops empty sections.
+  const shown = SECTIONS.filter(({ key }) => inboxStatus ? key === inboxStatus && groups.get(key).length > 0 : board.matches || groups.get(key).length > 0);
   $("sections").replaceChildren(...shown.map((section) => renderSection(section, groups.get(section.key))));
   $("inbox-empty").hidden = chats.length > 0;
   $("filter-empty").hidden = !inboxStatus || shown.length > 0 || chats.length === 0;
@@ -336,21 +345,22 @@ function renderStatus(thread, turn) {
 }
 
 $("reminder-toggle").addEventListener("click", () => {
-  if (!latest || !latest.attention_key) return;
+  if (!threadData || !threadData.attention_key) return;
   try {
-    const key = `reminder:v1:${latest.id}`;
-    if (reminderDismissed(latest)) localStorage.removeItem(key);
-    else localStorage.setItem(key, latest.attention_key);
-    renderThread(latest);
+    const key = `reminder:v1:${threadData.id}`;
+    if (reminderDismissed(threadData)) localStorage.removeItem(key);
+    else localStorage.setItem(key, threadData.attention_key);
+    renderThread(threadData);
+    if (inboxData) renderInbox(inboxData);
   } catch {
     $("reminder-note").textContent = "Could not save this preference. The reminder remains active.";
   }
 });
 
 window.addEventListener("storage", (event) => {
-  if (latest && (event.key === null || event.key.startsWith("reminder:v1:"))) {
-    if (threadId) renderThread(latest);
-    else renderInbox(latest);
+  if (event.key === null || event.key.startsWith("reminder:v1:")) {
+    if (threadData) renderThread(threadData);
+    if (inboxData) renderInbox(inboxData);
   }
 });
 
@@ -502,11 +512,13 @@ function renderTimeline(thread) {
 }
 
 function renderThread(thread) {
+  const title = threadId ? $("title") : $("panel-title");
+  const subtitle = threadId ? $("subtitle") : $("panel-subtitle");
   if (!thread) {
-    latest = null;
-    $("title").textContent = "Chat not found";
-    document.title = "Chat not found · Codex companion";
-    $("subtitle").hidden = true;
+    threadData = null;
+    title.textContent = "Chat not found";
+    if (threadId) document.title = "Chat not found · Codex companion";
+    subtitle.hidden = true;
     $("status-card").dataset.status = "idle";
     $("status-icon").setAttribute("href", "#i-alert");
     $("status-title").textContent = "No rollout file for this chat";
@@ -517,13 +529,13 @@ function renderThread(thread) {
     for (const id of ["open-codex", "next-options", "reminder-controls", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
     return;
   }
-  latest = thread;
+  threadData = thread;
   const turn = thread.turns[thread.turns.length - 1];
-  $("title").textContent = chatName(thread);
-  document.title = `${chatName(thread)} · Codex companion`;
-  $("subtitle").hidden = false;
-  $("subtitle").textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
-  $("subtitle").title = `${thread.cwd} · last recorded event`;
+  title.textContent = chatName(thread);
+  if (threadId) document.title = `${chatName(thread)} · Codex companion`;
+  subtitle.hidden = false;
+  subtitle.textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
+  subtitle.title = `${thread.cwd} · last recorded event`;
   $("more").hidden = false;
   renderStatus(thread, turn);
   renderChanges(thread, turn);
@@ -534,11 +546,80 @@ function renderThread(thread) {
   if (turn && turn.ended_at) seen.set(thread.id, turn.ended_at);
 }
 
+// Board panel
+
+function panelUrl(id) {
+  const query = new URLSearchParams();
+  if (inboxStatus) query.set("status", inboxStatus);
+  if (id) query.set("open", id);
+  const text = query.toString();
+  return text ? `/?${text}` : "/";
+}
+
+function cardFor(id) {
+  return [...$("sections").querySelectorAll(".row")].find((row) => new URLSearchParams(row.search).get("thread") === id);
+}
+
+function resetThread() {
+  $("panel-title").textContent = "Loading";
+  $("panel-subtitle").textContent = "";
+  $("status-card").dataset.status = "idle";
+  $("status-icon").setAttribute("href", "#i-turn");
+  $("status-title").textContent = "Loading";
+  for (const id of ["status-body", "open-codex", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
+  for (const details of $("thread-view").querySelectorAll("details")) details.open = false;
+  $("thread-view").scrollTop = 0;
+}
+
+function showPanel(id) {
+  if (id === openId) return;
+  threadSource?.close();
+  threadSource = null;
+  threadData = null;
+  openId = id;
+  document.body.dataset.panel = id ? "open" : "closed";
+  $("thread-view").hidden = !id;
+  for (const row of $("sections").querySelectorAll(".row")) {
+    if (new URLSearchParams(row.search).get("thread") === id) row.setAttribute("aria-current", "true");
+    else row.removeAttribute("aria-current");
+  }
+  if (!id) return;
+  resetThread();
+  threadSource = connect(`/api/stream?thread=${encodeURIComponent(id)}`, "thread", renderThread);
+}
+
+function closePanel() {
+  const card = cardFor(openId);
+  history.pushState(null, "", panelUrl(""));
+  showPanel("");
+  card?.focus();
+}
+
+if (!threadId) {
+  $("sections").addEventListener("click", (event) => {
+    const link = event.target.closest(".row");
+    if (!link || !board.matches || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const id = new URLSearchParams(link.search).get("thread");
+    if (id !== openId) history.pushState(null, "", panelUrl(id));
+    showPanel(id);
+  });
+  $("panel-close").addEventListener("click", closePanel);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && openId) closePanel();
+  });
+  window.addEventListener("popstate", () => showPanel(board.matches ? new URLSearchParams(location.search).get("open") || "" : ""));
+  board.addEventListener("change", () => {
+    if (!board.matches && openId) location.assign(`/?thread=${encodeURIComponent(openId)}${inboxReturn}`);
+    else if (inboxData) renderInbox(inboxData);
+  });
+}
+
 for (const chip of document.querySelectorAll(".chip")) {
   chip.addEventListener("click", () => {
     filter = chip.dataset.filter;
     for (const other of document.querySelectorAll(".chip")) other.setAttribute("aria-pressed", String(other === chip));
-    if (latest) renderTimeline(latest);
+    if (threadData) renderTimeline(threadData);
   });
 }
 
@@ -552,6 +633,10 @@ if (threadId) {
   connect(`/api/stream?thread=${encodeURIComponent(threadId)}`, "thread", renderThread);
 } else {
   $("inbox-view").hidden = false;
+  $("panel-head").hidden = false;
   if (inboxStatus) $("title").textContent = INBOX_FILTERS[inboxStatus].label;
   connect("/api/stream", "inbox", renderInbox);
+  const open = params.get("open");
+  if (open && board.matches) showPanel(open);
+  else if (open) location.replace(`/?thread=${encodeURIComponent(open)}${inboxReturn}`);
 }
