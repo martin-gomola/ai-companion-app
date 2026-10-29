@@ -169,3 +169,12 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   showed one column capped at the reading width.
 - The list and chat page layouts at 320, 390, and 430px and 200% text were re-checked with no
   overflow or small targets. Safari, VoiceOver, and real multi-monitor setups were not checked.
+
+## Liquid Glass material on 2026-10-29
+
+- Text contrast was computed against glass composited over the darkest and lightest backdrop points
+  and with the pressed overlay: every text role is at least 4.5:1 in both appearances. The accent,
+  dark purple, and dark red were adjusted to reach that.
+- List and chat views at 320, 390, and 430px, 200% text, and the board at 900 and 1440px showed no
+  overflow or controls under 44px. With increased contrast emulated, cards rendered opaque with no
+  backdrop blur. Reduced transparency and WebKit rendering of backdrop-filter were not emulated.
