@@ -285,3 +285,6 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - A two-turn demo chat showed Files changed with 3 files, newest first (`db.ts` Turns 1, 2;
   `migrate.ts` Turn 2; `schema.sql` Turn 1) at 390px light and 320px dark, with no overflow or
   controls under 44px. A chat whose edits were all in its latest turn hid the row. 31 tests pass.
+- Turn numbers were removed from Files changed: the two-turn demo lists `db.ts`, `migrate.ts`,
+  and `schema.sql` with only their folders, most recently changed first, at 390px light and 320px
+  dark with no overflow; the single-turn chat still hides the row. 31 tests pass.

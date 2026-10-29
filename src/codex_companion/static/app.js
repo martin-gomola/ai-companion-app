@@ -494,24 +494,24 @@ function renderChanges(thread, turn) {
   $("files").replaceChildren(...files.map((path) => fileItem(path, thread.cwd)));
 }
 
-function fileItem(path, cwd, note = "") {
+function fileItem(path, cwd) {
   const relative = relativePath(path, cwd);
   const item = el("li");
   item.title = path;
-  const dir = relative.split("/").slice(0, -1).join("/");
-  item.append(el("code", "", relative.split("/").pop()), el("span", "file-dir", [dir, note].filter(Boolean).join(" · ")));
+  item.append(el("code", "", relative.split("/").pop()), el("span", "file-dir", relative.split("/").slice(0, -1).join("/")));
   return item;
 }
 
-// Every file the session touched, newest first; shown only when earlier turns changed files too.
+// The session's final set of changed files, most recently changed first; shown only when earlier
+// turns changed files too, since Changes and checks already lists the latest turn's files.
 function renderSessionFiles(thread, turn) {
-  const turnsByPath = new Map();
-  for (const each of thread.turns) for (const path of each.files) turnsByPath.set(path, [...(turnsByPath.get(path) || []), each.index]);
-  const onlyLatest = [...turnsByPath.values()].every((turns) => turns.length === 1 && turns[0] === turn?.index);
-  $("session-files-wrap").hidden = turnsByPath.size === 0 || onlyLatest;
-  rowLabel("session-files-summary", "Files changed", `${turnsByPath.size} ${turnsByPath.size === 1 ? "file" : "files"}`);
-  const paths = [...turnsByPath].sort(([, a], [, b]) => b.at(-1) - a.at(-1));
-  $("session-files").replaceChildren(...paths.map(([path, turns]) => fileItem(path, thread.cwd, `${turns.length === 1 ? "Turn" : "Turns"} ${turns.join(", ")}`)));
+  const lastTurn = new Map();
+  for (const each of thread.turns) for (const path of each.files) lastTurn.set(path, each.index);
+  const earlier = thread.turns.some((each) => each !== turn && each.files.length > 0);
+  $("session-files-wrap").hidden = !earlier;
+  rowLabel("session-files-summary", "Files changed", `${lastTurn.size} ${lastTurn.size === 1 ? "file" : "files"}`);
+  const paths = [...lastTurn].sort(([, a], [, b]) => b - a).map(([path]) => path);
+  $("session-files").replaceChildren(...paths.map((path) => fileItem(path, thread.cwd)));
 }
 
 function renderDecisions(thread) {

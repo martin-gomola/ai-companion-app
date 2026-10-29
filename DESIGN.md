@@ -96,9 +96,10 @@ Codex controls.
   directly; older ones sit behind a counted disclosure row. A pending question appears in the status
   card, not here.
 - More, as disclosure rows: Earlier turns, Files changed, Activity (with Key steps and Everything
-  filters), and Session details. Files changed lists every file the session edited, newest first,
-  with the turns that touched it; it appears only when earlier turns edited files, because Changes
-  and checks already lists the latest turn's files. Session details shows the latest reported
+  filters), and Session details. Files changed is the session's final set of edited files, most
+  recently changed first, without per-turn history (long chats made turn lists noise); it appears
+  only when earlier turns edited files, because Changes and checks already lists the latest turn's
+  files. Session details shows the latest reported
   token totals and last-request usage, model and effort from the latest turn, provider, branch, client, working directory, and report
   time. Counts come from the latest token_count snapshot, never a sum; cached input and reasoning
   are included in their parent counts; context is the last request total relative to the model
