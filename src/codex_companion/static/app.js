@@ -44,7 +44,7 @@ const statusParam = params.get("status");
 const inboxStatus = Object.hasOwn(INBOX_FILTERS, statusParam) ? statusParam : "";
 const inboxReturn = inboxStatus ? `&status=${inboxStatus}` : "";
 document.body.dataset.view = threadId ? "thread" : "inbox";
-const board = matchMedia("(min-width: 900px)");
+const board = matchMedia("(min-width: 1280px)");
 let inboxData = null;
 let threadData = null;
 let filter = "key";

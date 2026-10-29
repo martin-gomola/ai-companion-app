@@ -88,7 +88,7 @@ The companion tails those files; it never writes to `~/.codex`.
   need you, and hides sub-agent chats. Filtered chat links keep their return scope. The page
   follows the system light or dark appearance; the sun/moon switch in the header overrides it in
   this browser.
-- **Board.** From 900px wide, for example on a separate monitor, the inbox becomes a read-only
+- **Board.** From 1280px wide, for example on a separate monitor, the inbox becomes a read-only
   board with one column per status. Clicking a card opens the chat in a wide panel, and the board
   collapses into the inbox list beside it until the panel is closed.
 - **Project labels.** The session's working directory is matched to project roots in Codex's local

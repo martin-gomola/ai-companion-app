@@ -215,3 +215,10 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   sidebar. Inbox, filter, and chat views at 320, 390, and 430px in both themes, 200% text, and the
   board and panel at 900 and 1440px showed no overflow or controls under 44px. Panel open, switch,
   Escape focus return, and browser back still passed; increased contrast still rendered opaque cards.
+
+## Board breakpoint and column breathing room on 2026-10-29
+
+- The board now starts at 1280px, where four columns are about 290px wide; at 1024px the inbox is
+  the centered list. Board columns have 32px page margins, 20px gaps, and a stable scrollbar gutter
+  with 8px between cards and the scrollbar. Board and panel at 1280 and 1440px, the list at 1024px,
+  and phone widths in both themes showed no overflow or controls under 44px.

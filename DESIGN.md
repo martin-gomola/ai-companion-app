@@ -15,8 +15,8 @@ Codex controls.
 
 - A browser pane from 320px wide to desktop, reading column capped at 52rem. Pointer, keyboard, and
   touch all work; nothing depends on hover.
-- From 900px wide, for example on a separate monitor, the inbox becomes a full-width board (see
-  Board). Below 900px it is the list described in Inbox.
+- From 1280px wide, for example on a separate monitor, the inbox becomes a full-width board (see
+  Board). Below 1280px it is the list described in Inbox.
 - The page follows the system light or dark appearance until the user picks one with the sun/moon
   switch in the header. The choice is stored in this browser and applied before the first paint.
 - iOS patterns are borrowed where they help scanning: large titles, inset grouped lists, segmented
@@ -67,7 +67,7 @@ Codex controls.
   button. The open chat is marked current with a tinted row and an accent edge, scrolled into view.
   Closing the panel restores the columns. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
   Escape closes it and returns focus to the card. Modified clicks (new tab or window) still open the
-  full chat page. Narrowing the window below 900px with a panel open switches to the chat page.
+  full chat page. Narrowing the window below 1280px with a panel open switches to the chat page.
 ## Chat page
 
 - A sticky row with the back link on the left and the same live-state and theme group on the
