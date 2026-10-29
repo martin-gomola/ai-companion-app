@@ -138,8 +138,10 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 - Pictograms carry the structure so a long chat stays scannable. Every section title starts with a
   tinted icon chip in its role color: What happened (green, message), Changes and checks (teal,
   terminal), Decisions (purple, branch), More (grey); inbox sections use their status color and
-  glyph. Disclosure rows lead with a muted icon. The agent's decision sits in a 6% purple-tinted
-  block under a purple label.
+  glyph. Disclosure rows lead with a muted icon. Each decision leads with the chosen answer
+  (medium weight); the question follows as muted context clamped to two lines (full text in the
+  tooltip), then the reason, then a meta line whose purple You or Agent says who decided. No tinted
+  answer block, and a leading Markdown heading marker is stripped from answers.
 - No colored side stripes on cards, rows, or quotes: that idiom reads as generic generated UI. The
   status card is one surface: for needs you, working, and stopped it takes a 6% tint and a border
   in the status color, with no inner band or divider, so the header reads as part of the card. At

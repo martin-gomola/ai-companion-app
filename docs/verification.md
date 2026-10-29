@@ -294,3 +294,10 @@ Dated delivery checks for the [design contract](../DESIGN.md).
 - A finished two-turn demo chat showed Chat so far and Latest turn with a separator (390px light,
   320px dark); a chat running its third turn showed only the previous recap; a chat without a
   recap showed the outcome alone, unchanged. No overflow or controls under 44px; 31 tests pass.
+
+## Lighter decisions on 2026-10-29
+
+- Decisions lead with the answer, then the muted two-line question, the reason, and the You or
+  Agent meta line; a `## My request: stop` answer rendered as `My request: stop`. At 430px light
+  and 320px dark there was no overflow or control under 44px; the purple role is 5.0:1 light and
+  at least 4.5:1 dark; the board views passed; 31 tests pass.

@@ -534,10 +534,12 @@ function renderDecisions(thread) {
     item.dataset.record = record;
     const at = new Date(decision.at);
     const when = [decision.turn ? `Turn ${decision.turn}` : "", Number.isNaN(at.getTime()) ? "" : at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · ");
-    const answer = el("div", "decision-answer");
-    answer.append(el("p", "decision-role", decision.source === "agent" ? "Agent decision" : "Your answer"), el("p", "decision-answer-text", decision.chosen || "No answer text recorded."));
-    item.replaceChildren(el("p", "decision-meta", ["Question", when].filter(Boolean).join(" · ")), el("h3", "", decision.question), answer);
-    if (decision.reason) item.append(el("p", "reason", decision.reason));
+    const answer = (decision.chosen || "").replace(/^#+\s*/, "") || "No answer text recorded.";
+    const question = el("p", "decision-question", decision.question);
+    question.title = decision.question;
+    const meta = el("p", "decision-meta");
+    meta.append(el("span", "decision-role", decision.source === "agent" ? "Agent" : "You"), ...(when ? [` · ${when}`] : []));
+    item.replaceChildren(el("p", "decision-answer-text", answer), question, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), meta);
     const alternatives = decision.options.filter((option) => option !== decision.chosen);
     if (alternatives.length) {
       const disclosure = el("details", "decision-alternatives");

@@ -306,15 +306,16 @@ details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
 .file-dir { color: var(--color-text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
 
 .decisions { display: grid; }
-.decision { display: grid; gap: var(--space-2); }
+.decision { display: grid; gap: var(--space-1); }
 .decision-meta { color: var(--color-text-muted); font-size: var(--text-xs); }
-.decision h3 { font-size: var(--text-md); font-weight: var(--weight-semibold); line-height: var(--leading-normal); }
-.decision-answer {
-  display: grid; gap: 0.125rem; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-working-fill) var(--tint-soft), var(--color-surface));
+/* The decision leads; the question is muted context, clamped to two lines (full text in the tooltip). */
+.decision-answer-text { font-weight: var(--weight-medium); line-height: var(--leading-normal); }
+.decision-question {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-normal);
 }
-.decision-role { color: var(--color-working); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
-.decision h3, .decision .reason, .decision-answer-text, .decision-other-options { overflow-wrap: anywhere; white-space: pre-wrap; }
+.decision-role { color: var(--color-working); font-weight: var(--weight-semibold); }
+.decision-question, .decision .reason, .decision-answer-text, .decision-other-options { overflow-wrap: anywhere; white-space: pre-wrap; }
 .decision .reason { color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-relaxed); }
 .decision-alternatives > summary { display: flex; align-items: center; gap: var(--space-1); min-height: var(--size-control); color: var(--color-accent); font-size: var(--text-sm); list-style: none; cursor: pointer; }
 .decision-other-options { display: grid; gap: var(--space-1); padding-inline-start: var(--space-5); list-style: disc; color: var(--color-text-muted); font-size: var(--text-sm); }
@@ -366,7 +367,7 @@ details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
 .footer { color: var(--color-text-muted); font-size: var(--text-xs); text-align: center; }
 
 @media (max-width: 480px) {
-  .row-text, .decision .reason, .decision-other-options, .turn-body, .session-note, .check .command, .status-text .command { font-size: var(--text-md); }
+  .row-text, .decision-other-options, .turn-body, .session-note, .check .command, .status-text .command { font-size: var(--text-md); }
   .open-codex { flex: 1 1 100%; }
   .disclosure-row > summary { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0; }
   .disclosure-row > summary > .row-value { grid-row: 2; grid-column: 2; text-align: start; }
