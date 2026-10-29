@@ -61,8 +61,9 @@ Codex controls.
   follows its state in Codex.
 - A selected segment narrows the board to that one column.
 - Clicking a card opens that chat in a panel on the right. The open chat is the priority, so the
-  panel takes most of the width (content capped at the reading width) and the board collapses into
-  the phone list beside it: a 320–400px column with sections stacked, empty sections omitted, and
+  panel takes most of the width (content capped at the reading width and centered in the pane, as
+  Codex centers its conversation) and the board collapses into
+  the phone list beside it: a column about a quarter of the window wide (400–520px) with sections stacked, empty sections omitted, and
   its own scroll. The panel shows the chat page content under its own title, subtitle, and Close
   button. The open chat is marked current with a 6% accent-tinted row and an accent title, scrolled into view.
   Closing the panel restores the columns. The panel is a bookmarkable `/?open=<id>` URL, browser back closes it, and
