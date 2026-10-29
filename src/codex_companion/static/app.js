@@ -46,7 +46,9 @@ const inboxStatus = Object.hasOwn(INBOX_FILTERS, statusParam) ? statusParam : ""
 const inboxReturn = inboxStatus ? `&status=${inboxStatus}` : "";
 document.body.dataset.view = threadId ? "thread" : "inbox";
 const board = matchMedia("(min-width: 1280px)");
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
 let inboxData = null;
+let inboxLayout = "";
 let threadData = null;
 let filter = "key";
 let openId = "";
@@ -184,6 +186,7 @@ function renderRow(chat) {
   const link = el("a", "row");
   link.href = `/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`;
   link.dataset.status = state;
+  link.dataset.id = chat.id;
   link.dataset.unread = String(unread);
   if (chat.id === openId) link.setAttribute("aria-current", "true");
   const glyph = el("span", "glyph");
@@ -232,12 +235,55 @@ function renderSection({ key, label }, chats) {
   return wrap;
 }
 
-function renderInbox(chats) {
-  inboxData = chats;
-  const focusedHref = document.activeElement.closest(".row, .show-all")?.getAttribute("href");
+function groupChats(chats) {
   const groups = new Map(SECTIONS.map(({ key }) => [key, []]));
   for (const chat of chats) groups.get(sectionOf(chat)).push(chat);
   for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return groups;
+}
+
+function layoutOf(groups) {
+  return [...groups].map(([key, list]) => `${key}:${list.map((chat) => chat.id).join(",")}`).join("|");
+}
+
+// View transitions ignore ancestor clipping, so only rows visible in their scroller get a name;
+// the rest cross-fade with the page instead of flying over other columns.
+function nameVisibleRows(on) {
+  const clips = [{ top: 0, left: 0, bottom: innerHeight, right: innerWidth }, $("sections").getBoundingClientRect()];
+  for (const row of $("sections").querySelectorAll(".row")) {
+    const item = row.parentElement;
+    const box = item.getBoundingClientRect();
+    const visible = [...clips, row.closest(".list").getBoundingClientRect()]
+      .every((clip) => box.bottom > clip.top && box.top < clip.bottom && box.right > clip.left && box.left < clip.right);
+    item.style.viewTransitionName = on && visible ? `row-${row.dataset.id.replace(/[^\w-]/g, "_")}` : "";
+  }
+}
+
+function transition(update, { rows = true } = {}) {
+  if (!document.startViewTransition || calm.matches || document.hidden || threadId) {
+    update();
+    return Promise.resolve();
+  }
+  nameVisibleRows(rows);
+  const view = document.startViewTransition(() => {
+    update();
+    nameVisibleRows(rows);
+  });
+  const clear = () => nameVisibleRows(false);
+  view.finished.then(clear, clear);
+  return view.updateCallbackDone.catch(() => {});
+}
+
+function liveInbox(chats) {
+  if (inboxLayout && layoutOf(groupChats(chats)) !== inboxLayout) transition(() => renderInbox(chats));
+  else renderInbox(chats);
+}
+
+function renderInbox(chats) {
+  inboxData = chats;
+  const focusedHref = document.activeElement.closest(".row, .show-all")?.getAttribute("href");
+  const groups = groupChats(chats);
+  inboxLayout = layoutOf(groups);
   // The board keeps every column in place; the list, also used beside an open panel, drops empty sections.
   const columns = board.matches && !openId;
   const shown = SECTIONS.filter(({ key }) => inboxStatus ? key === inboxStatus && groups.get(key).length > 0 : columns || groups.get(key).length > 0);
@@ -608,25 +654,26 @@ function resetThread() {
 }
 
 function showPanel(id) {
-  if (id === openId) return;
+  if (id === openId) return Promise.resolve();
   threadSource?.close();
   threadSource = null;
   threadData = null;
   openId = id;
-  document.body.dataset.panel = id ? "open" : "closed";
-  $("thread-view").hidden = !id;
-  if (inboxData) renderInbox(inboxData);
-  if (!id) return;
-  cardFor(id)?.scrollIntoView({ block: "nearest" });
-  resetThread();
-  threadSource = connect(`/api/stream?thread=${encodeURIComponent(id)}`, "thread", renderThread);
+  return transition(() => {
+    document.body.dataset.panel = id ? "open" : "closed";
+    $("thread-view").hidden = !id;
+    if (inboxData) renderInbox(inboxData);
+    if (!id) return;
+    cardFor(id)?.scrollIntoView({ block: "nearest" });
+    resetThread();
+    threadSource = connect(`/api/stream?thread=${encodeURIComponent(id)}`, "thread", renderThread);
+  }, { rows: false });
 }
 
 function closePanel() {
   const id = openId;
   history.pushState(null, "", panelUrl(""));
-  showPanel("");
-  cardFor(id)?.focus();
+  showPanel("").then(() => cardFor(id)?.focus());
 }
 
 if (!threadId) {
@@ -669,7 +716,7 @@ if (threadId) {
   $("inbox-view").hidden = false;
   $("panel-head").hidden = false;
   if (inboxStatus) $("inbox-title").textContent = INBOX_FILTERS[inboxStatus].label;
-  connect("/api/stream", "inbox", renderInbox);
+  connect("/api/stream", "inbox", liveInbox);
   const open = params.get("open");
   if (open && board.matches) showPanel(open);
   else if (open) location.replace(`/?thread=${encodeURIComponent(open)}${inboxReturn}`);

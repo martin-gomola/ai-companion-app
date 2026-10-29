@@ -256,3 +256,16 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   header, with an accessible label and tooltip that switch to Restore reminder. At 320, 390, and
   1440px in both themes, clicking the bell dismissed the reminder, kept focus on it, showed the
   browser-only note, and a second click restored it; no overflow or controls under 44px.
+
+## Smooth live updates, page transitions, and readability on 2026-10-29
+
+- In Chrome at 390 and 1440px, a live update that moved a working chat to Needs you started one
+  view transition, named only visible rows (6 and 8), and cleared the names afterwards; an update
+  with the same layout started none. Opening and closing the board panel each ran one transition
+  with no row names, and Escape still returned focus to the row. A disclosure was mid-height 60ms
+  after opening and full height at 500ms. Inbox to chat and back each revealed with the `page`
+  view transition type.
+- With reduced motion emulated: no view transitions on the panel or page changes, disclosures
+  opened at full height, and no animations were running.
+- Metadata at 13px and the 17px next step showed no overflow or controls under 44px at 320, 390,
+  and 430px in both themes, at 200% text, or on the board at 1024, 1280, and 1440px; 31 tests pass.

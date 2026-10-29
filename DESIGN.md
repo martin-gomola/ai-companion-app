@@ -144,10 +144,19 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 - Groups and cards use 10px corners and controls 8px; inner shapes stay concentric. Separators are
   inset to the text column. Filled actions (Open in Codex, selected segment and chip) are flat
   accent fills. Controls keep 44px targets even though Codex's own controls are smaller.
-- Motion: the working glyph rotates continuously without restarting on updates; a needs-you
-  status glyph and the live dot pulse softly; chat sections rise in one after another when a chat
-  opens (240ms, 40ms apart); disclosure chevrons rotate. Inbox rows do not animate because they
-  re-render on every update. Reduced motion removes all of it.
+- Motion: only the working glyph loops (it is a progress indicator); the needs-you glyph and the
+  live dot pulse three times, then rest. When a live update moves a chat to another section or
+  reorders a section, a same-document view transition slides the visible rows to their new place;
+  updates that change only text re-render without one, so frequent working updates never block
+  clicks. Rows hidden in a scrolled column are left unnamed, because view transitions ignore
+  ancestor clipping. Page changes (inbox to chat and back) fade the old page and rise the new one
+  under a still toolbar; the board panel slides in from the right and out again. Disclosures
+  open to their height, chat sections rise in (240ms, 40ms apart), and hover, press, and status
+  colors ease over 120ms. Reduced motion skips every transition and animation.
+- Readability: metadata is at least 13px (`--text-xs`); only uppercase labels use 12px
+  (`--text-label`). The next step reads one size up (17px). Headings balance their lines,
+  paragraphs avoid a lone last word, the next step and decision reasons keep a 68ch measure, and
+  times, counts, and step totals use tabular figures.
 
 ## Accessibility
 
