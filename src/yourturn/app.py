@@ -23,7 +23,7 @@ PAGE_POLICY = (
     "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; "
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
-ASSET_TYPES = {".css": "text/css", ".js": "text/javascript"}
+ASSET_TYPES = {".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
 
 
 def _static(name: str) -> str:
@@ -82,7 +82,7 @@ def create_app(
             """Blocking file reads; called off the event loop so one large chat cannot stall every stream."""
             if thread:
                 data = sessions.snapshot(thread)
-                return (str(data["version"]) if data else "missing"), data
+                return (f"{data['version']}:{data['quiet']}" if data else "missing"), data
             marker = sessions.inbox_fingerprint(INBOX_LIMIT)
             return marker, sessions.inbox(INBOX_LIMIT) if marker != last else None
 

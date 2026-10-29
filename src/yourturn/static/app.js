@@ -22,6 +22,10 @@ const STATUS = {
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
 const SECTION_ICONS = { waiting: "i-question", working: "i-working", new: "i-answer", earlier: "i-turn" };
+const CHECK_TAGS = {
+  failed: { label: "Check failed", className: "tag--interrupted" },
+  unchecked: { label: "Edits unchecked", className: "tag--idle" },
+};
 const NEXT_LABEL = { answer: "Answer", review: "Review", approve: "Approve", run: "Run", decide: "Decide", do: "To do" };
 const STEP_LABEL = {
   command: "Ran a command", edit: "Edited files", tool: "Called a tool", thinking: "Reasoning", agent: "Delegated work",
@@ -201,8 +205,11 @@ function renderRow(chat) {
   const meta = el("span", "row-meta");
   const action = chat.question ? "Answer" : NEXT_LABEL[chat.next_kind];
   const tag = state === "waiting" ? action || status.label : state === "done" || state === "idle" ? "" : status.label;
-  if (tag) meta.append(el("span", `tag tag--${state}`, tag));
+  if (state === "working" && chat.quiet) meta.append(el("span", "tag tag--waiting", "Quiet · may need approval"));
+  else if (tag) meta.append(el("span", `tag tag--${state}`, tag));
   if (unread) meta.append(el("span", "tag tag--new", "New"));
+  const check = state === "working" ? "" : CHECK_TAGS[chat.check_state];
+  if (check) meta.append(el("span", `tag ${check.className}`, check.label));
   meta.append(el("span", "row-project", projectName(chat)));
   body.append(meta);
   const chevron = icon("i-chevron");
@@ -239,7 +246,14 @@ function groupChats(chats) {
   const groups = new Map(SECTIONS.map(({ key }) => [key, []]));
   for (const chat of chats) groups.get(sectionOf(chat)).push(chat);
   for (const list of groups.values()) list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  // Longest wait first: the chat that has been blocked on you the longest is the one you are most likely to have missed.
+  groups.get("waiting").sort((a, b) => waitingSince(a).localeCompare(waitingSince(b)));
+  groups.get("working").sort((a, b) => Number(b.quiet) - Number(a.quiet));
   return groups;
+}
+
+function waitingSince(chat) {
+  return chat.turn_ended_at || chat.updated_at;
 }
 
 function layoutOf(groups) {
@@ -275,6 +289,7 @@ function transition(update, { rows = true } = {}) {
 }
 
 function liveInbox(chats) {
+  notifyChanges(chats);
   if (inboxLayout && layoutOf(groupChats(chats)) !== inboxLayout) transition(() => renderInbox(chats));
   else renderInbox(chats);
 }
@@ -305,7 +320,67 @@ function renderInbox(chats) {
   if (focusedHref) [...$("sections").querySelectorAll("a")].find((link) => link.getAttribute("href") === focusedHref)?.focus({ preventScroll: true });
   const needs = groups.get("waiting").length;
   document.title = needs ? `(${needs}) Your Turn` : "Your Turn";
+  setFavicon(needs > 0);
 }
+
+function setFavicon(alert) {
+  const href = alert ? "/assets/icon-alert.svg" : "/assets/icon.svg";
+  if ($("favicon").getAttribute("href") !== href) $("favicon").setAttribute("href", href);
+}
+
+// Notifications: opt-in, from the inbox page only, and only for changes after the page loaded.
+
+const notifySupported = "Notification" in window && window.isSecureContext;
+let alerts = null;
+
+function notifyOn() {
+  return notifySupported && Notification.permission === "granted" && readPreference("notify") === "on";
+}
+
+function alertOf(chat) {
+  if (needsAttention(chat)) return { key: `need:${chat.attention_key || chat.turn_ended_at}`, title: `Needs you: ${chatName(chat)}`, body: chatSummary(chat) || "" };
+  if (chat.status === "working" && chat.quiet) return { key: `quiet:${chat.updated_at}`, title: `Quiet: ${chatName(chat)}`, body: "No activity for 2 minutes. It may be waiting for your approval in Codex." };
+  return null;
+}
+
+function notifyChanges(chats) {
+  const next = new Map(chats.map((chat) => [chat.id, alertOf(chat)?.key || ""]));
+  if (alerts && notifyOn() && (document.hidden || !document.hasFocus())) {
+    for (const chat of chats) {
+      const alert = alertOf(chat);
+      if (!alert || alerts.get(chat.id) === alert.key) continue;
+      const notice = new Notification(alert.title, { body: alert.body, tag: chat.id, icon: "/assets/icon-alert.svg" });
+      notice.onclick = () => {
+        window.focus();
+        notice.close();
+        if (board.matches) {
+          history.pushState(null, "", inboxUrl(inboxStatus, chat.id));
+          showPanel(chat.id);
+        } else location.assign(`/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`);
+      };
+    }
+  }
+  alerts = next;
+}
+
+function syncNotifyToggle() {
+  const on = notifyOn();
+  const blocked = notifySupported && Notification.permission === "denied";
+  const label = blocked ? "Notifications are blocked in this browser's site settings" : on ? "Stop notifications" : "Notify me when a chat needs me";
+  $("notify-toggle").setAttribute("aria-pressed", String(on));
+  $("notify-toggle").setAttribute("aria-label", label);
+  $("notify-toggle").title = label;
+  $("notify-toggle").querySelector("use").setAttribute("href", on ? "#i-bell" : "#i-bell-off");
+}
+
+$("notify-toggle").addEventListener("click", async () => {
+  if (notifyOn()) {
+    try { localStorage.removeItem("notify"); } catch { /* Stays on until storage works. */ }
+  } else if (await Notification.requestPermission() === "granted") {
+    try { localStorage.setItem("notify", "on"); } catch { /* Without storage the preference cannot be kept. */ }
+  }
+  syncNotifyToggle();
+});
 
 // Thread
 
@@ -380,6 +455,8 @@ function renderStatus(thread, turn) {
   const state = attentionState(chat);
   const status = STATUS[state] || STATUS.idle;
   $("status-card").dataset.status = state;
+  $("status-card").dataset.quiet = String(state === "working" && Boolean(thread.quiet));
+  if (threadId) setFavicon(state === "waiting");
   $("status-icon").setAttribute("href", `#${status.icon}`);
   if (state === "working") syncSpin($("status-icon"));
   $("status-title").textContent = status.label;
@@ -399,6 +476,7 @@ function renderStatus(thread, turn) {
       setStatusText(`${label}, shown under Changes and checks.`);
       label = "";
     } else setStatusText(step?.title || "Working on your request.", step?.kind === "command" && Boolean(step.title));
+    if (thread.quiet) label = "Quiet";
   } else if (pending) {
     kind = "answer";
     label = NEXT_LABEL.answer;
@@ -411,6 +489,10 @@ function renderStatus(thread, turn) {
     setStatusText(turn.next_text);
   }
   $("status-body").dataset.kind = kind;
+  const quiet = thread.status === "working" && Boolean(thread.quiet);
+  const quietNote = quiet ? `Last activity ${ago(thread.updated_at)}. It may be waiting for your approval in Codex, or running a long command.` : "";
+  $("quiet-note").hidden = !quiet;
+  if ($("quiet-note").textContent !== quietNote) $("quiet-note").textContent = quietNote;
   $("next-kind").hidden = !label;
   $("next-kind").textContent = label;
   const options = pending && thread.status !== "working" ? pending.options : [];
@@ -670,7 +752,7 @@ function renderThread(thread) {
     $("status-body").dataset.kind = "none";
     $("next-kind").hidden = true;
     setStatusText("It may have been archived. Go back to the inbox.");
-    for (const id of ["open-codex", "next-options", "reminder-toggle", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
+    for (const id of ["open-codex", "next-options", "reminder-toggle", "quiet-note", "outcome-wrap", "changes", "decisions-wrap", "more"]) $(id).hidden = true;
     return;
   }
   threadData = thread;
@@ -779,6 +861,8 @@ if (threadId) {
 } else {
   $("inbox-view").hidden = false;
   $("panel-head").hidden = false;
+  $("notify-toggle").hidden = !notifySupported;
+  if (notifySupported) syncNotifyToggle();
   if (inboxStatus) $("inbox-title").textContent = INBOX_FILTERS[inboxStatus].label;
   connect("/api/stream", "inbox", liveInbox);
   const open = params.get("open");

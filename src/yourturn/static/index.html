@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#ffffff">
 <title>Your Turn</title>
+<link rel="icon" id="favicon" type="image/svg+xml" href="/assets/icon.svg">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/app.css">
 <script src="/assets/theme.js"></script>
@@ -48,6 +49,7 @@
     <p class="connection" id="connection" data-state="connecting" role="status">
       <span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
     </p>
+    <button class="theme-toggle" id="notify-toggle" type="button" aria-pressed="false" aria-label="Notify me when a chat needs me" title="Notify me when a chat needs me" hidden><svg aria-hidden="true"><use href="#i-bell-off"/></svg></button>
     <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><svg aria-hidden="true"><use href="#i-moon"/></svg></button>
   </div>
 </header>
@@ -87,6 +89,7 @@
       <div class="status-body" id="status-body" data-kind="unknown" hidden>
         <p class="status-kind" id="next-kind" hidden></p>
         <div class="status-text" id="status-text" aria-live="polite"></div>
+        <p class="quiet-note" id="quiet-note" hidden></p>
         <ul class="options" id="next-options" hidden></ul>
         <p id="reminder-note" role="status"></p>
       </div>

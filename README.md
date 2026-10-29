@@ -61,6 +61,9 @@ cd ~/dev/your-turn
 make up
 ```
 
+To try it without cloning, run
+`uvx --from git+https://github.com/martin-gomola/your-turn your-turn serve`.
+
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787) for the inbox, or `/?thread=<thread_id>` for one
 chat. It works in a normal browser and in the Codex in-app browser, where it sits beside the chat:
 
@@ -78,6 +81,11 @@ make mcp
 points to `plugin/`) and installs `your-turn`. The plugin's MCP server runs from this checkout
 through `uv`. If the repo lives somewhere other than `~/dev/your-turn`, set
 `YOUR_TURN_REPO`.
+
+If you would rather not install the plugin, paste the block from
+[docs/agents-snippet.md](./docs/agents-snippet.md) into `~/.codex/AGENTS.md` or a repo's
+`AGENTS.md`. Codex then writes the same Outcome, Next step, and Recap lines, but agent decisions are
+not logged.
 
 ## Commands you will use
 
@@ -104,6 +112,15 @@ Your Turn tails those files; it never writes to `~/.codex`.
   need you, and hides sub-agent chats. Filtered chat links keep their return scope. The page
   follows the system light or dark appearance; the sun/moon switch in the header overrides it in
   this browser.
+- **Alerts.** The tab title shows the Needs you count and the favicon gets an orange badge. Turn on
+  the bell in the header to get a system notification when a chat newly needs you while the inbox
+  tab is in the background; clicking it opens the chat. Keep the inbox open in a browser tab for
+  this to work.
+- **Quiet chats.** A working chat whose session file has not changed for two minutes is tagged
+  **Quiet · may need approval** and sorts first under Working. It is a hint: the chat may be
+  waiting on an approval prompt, or running a long command.
+- **Check tags.** Rows show **Check failed** when a check's latest run failed and **Edits
+  unchecked** when the latest turn changed files with no test or lint after them.
 - **Board.** From 1280px wide, for example on a separate monitor, the inbox becomes a read-only
   board with one column per status. Clicking a card opens the chat in a wide panel, and the board
   collapses into the inbox list beside it until the panel is closed.
@@ -139,13 +156,14 @@ this machine and keeps seen and dismissed state in browser storage. Nothing leav
 Recaps are only as good as the agent's final answer. Chats from before the plugin was installed, or
 agents that skip the handoff format, show the fallback paragraph and usually an unknown next step.
 Codex does not write approval requests to rollout files, so a chat blocked on an approval shows as
-Working.
+Working until it has been silent for two minutes, then as Quiet. A long-running command looks the
+same, so Quiet never counts toward Needs you.
 
 ## API
 
 | Route | Returns |
 | --- | --- |
-| `GET /api/inbox` | Recent chats with status, outcome, next step, and whether they need you |
+| `GET /api/inbox` | Recent chats with status, outcome, next step, whether they need you, whether they are quiet, and their check state |
 | `GET /api/threads/<id>` | Snapshot of one chat |
 | `GET /api/stream?thread=<id>` | Server-sent `thread` events when that chat changes; without `thread`, `inbox` events |
 
@@ -164,6 +182,7 @@ docs/images/                  README screenshots
 
 - [Design contract](./DESIGN.md)
 - [Handoff format skill](./plugin/skills/your-turn-handoff/SKILL.md)
+- [Handoff format without the plugin](./docs/agents-snippet.md)
 
 ## License
 

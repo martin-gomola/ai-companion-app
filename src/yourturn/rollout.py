@@ -22,6 +22,8 @@ MAX_TEXT = 280
 MAX_TAILS = 16
 INBOX_TAIL_BYTES = 8 * 1024 * 1024
 ATTENTION_DAYS = 14
+# Codex does not record approval prompts, so a working chat whose file stops growing is the only hint.
+QUIET_SECONDS = 120
 ACTION_KINDS = {"answer", "review", "approve", "run", "decide", "do"}
 # Substring prefilter: rollout files carry multi-megabyte encrypted reasoning lines we never need to parse.
 WANTED = (b'"item_completed"', b'"task_started"', b'"task_complete"', b'"turn_aborted"', b'"session_meta"', b'"turn_context"', b'"token_count"')
@@ -42,6 +44,13 @@ CHECK_COMMAND = re.compile(
 )
 HEADING = re.compile(r"#{1,6}\s+.*|(\*\*|__)[^*_\n]+\1:?")
 REQUEST = re.compile(r"^(please (provide|share|confirm|send|tell)|can you|could you)\b", re.IGNORECASE)
+# An imperative at a sentence start, or after "please" / "you can" and similar; "I ran pytest" never matches.
+ASK_LEAD = r"(?:^|[.!?:;,]\s+|\bthen\s+|\bplease\s+|\byou(?:'ll| can| could| should| may| might| need to| may want to| might want to)\s+)"
+FINAL_ASKS = (
+    ("run", re.compile(ASK_LEAD + r"run\s+(?!time\b)\S", re.IGNORECASE)),
+    ("review", re.compile(ASK_LEAD + r"(?:review|take a look at|have a look at)\s+\S", re.IGNORECASE)),
+    ("answer", re.compile(r"\b(?:let me know (?:if|whether|which|what|how|when)|would you like|do you want|should i|shall i)\b", re.IGNORECASE)),
+)
 
 
 @dataclass
@@ -156,8 +165,8 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
     """Return (outcome, next_kind, next_text, formatted) from a final answer.
 
     Answers following the Your Turn handoff format carry `Outcome:` and `Next step:` lines; anything else
-    falls back to the first prose paragraph, and to an inferred `answer` step when the reply opens
-    with a request or ends with a question.
+    falls back to the first prose paragraph. The next step is then inferred from the final paragraph (a
+    `run`, `review`, or `answer` ask, or a closing question), or an `answer` when the reply opens with a request.
     """
     labels = {match.group(1).lower(): match.group(2) for match in ANSWER_LABEL.finditer(text)}
     outcome = labels.get("outcome") or labels.get("result")
@@ -166,13 +175,13 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
         parts = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
         flat = [" ".join(line.strip(" -*#>") for line in part.splitlines()).strip() for part in parts]
         body = [line for part, line in zip(parts, flat) if not HEADING.fullmatch(part) and not line.endswith(":")]
-        request = ""
-        if flat and REQUEST.match(flat[0]):
-            request = " ".join(flat[:2]) if flat[0].endswith(":") else flat[0]
-        elif flat and flat[-1].endswith("?"):
-            request = flat[-1]
+        last = " ".join(flat[-2:]) if len(flat) > 1 and flat[-2].endswith(":") else flat[-1] if flat else ""
+        kind = next((name for name, ask in FINAL_ASKS if ask.search(last)), "answer" if last.endswith("?") else "")
+        request = last if kind else ""
+        if not kind and flat and REQUEST.match(flat[0]):
+            kind, request = "answer", " ".join(flat[:2]) if flat[0].endswith(":") else flat[0]
         summary = body[0] if body else flat[0] if flat else ""
-        return _clip(summary, 200), "answer" if request else "unknown", _clip(request, 200), False
+        return _clip(summary, 200), kind or "unknown", _clip(request, 200), False
     kind, step_text = "unknown", _clip(step or "", 200)
     if step is not None:
         if NOTHING_NEEDED.match(step_text):
@@ -195,6 +204,22 @@ def needs_you(entry: dict[str, Any]) -> bool:
     if entry["status"] == "waiting":
         return True
     return entry["status"] == "done" and entry["next_kind"] in ACTION_KINDS and bool(entry["next_text"])
+
+
+def check_state(turn: Turn | None) -> str:
+    """`failed` when a check's latest run failed, `unchecked` when edits have no check after them."""
+    if turn is None:
+        return ""
+    if any(check.exit_code not in (0, None) for check in turn.checks):
+        return "failed"
+    if turn.files and (not turn.checks or turn.edited_after_check):
+        return "unchecked"
+    return ""
+
+
+def is_quiet(status: str, modified_ns: int, now: float | None = None) -> bool:
+    """A working chat whose rollout has not changed for a while: waiting on an approval, a long command, or stalled."""
+    return status == "working" and (now or time.time()) - modified_ns / 1e9 > QUIET_SECONDS
 
 
 def user_text(text: str) -> str:
@@ -621,20 +646,29 @@ class Sessions:
                 "next_text": turn.next_text if turn else "",
                 "question": pending.question if pending else "",
                 "attention_key": state.attention_key,
+                "check_state": check_state(turn),
             })
             cached[1]["needs_you"] = needs_you(cached[1])
             self._inbox[path] = cached
-        return {**cached[1], "project": self.project_name(cached[1]["cwd"]), "title": titles.get(thread_id_of(path), "")}
+        return {
+            **cached[1],
+            "quiet": is_quiet(cached[1]["status"], signature[1]),
+            "project": self.project_name(cached[1]["cwd"]),
+            "title": titles.get(thread_id_of(path), ""),
+        }
 
     def inbox_fingerprint(self, limit: int = 30) -> str:
+        """Changes when a chat file changes, and when a working chat turns quiet without any write."""
         parts = []
         with self._lock:
-            chats = self.chats(limit)
-        for path in chats:
-            try:
-                parts.append(f"{path.name}:{_signature(path)}")
-            except OSError:
-                continue
+            for path in self.chats(limit):
+                try:
+                    signature = _signature(path)
+                except OSError:
+                    continue
+                cached = self._inbox.get(path)
+                quiet = bool(cached) and is_quiet(cached[1]["status"], signature[1])
+                parts.append(f"{path.name}:{signature}:{quiet}")
         return "|".join(parts)
 
     def state(self, thread_id: str) -> ThreadState | None:
@@ -645,7 +679,14 @@ class Sessions:
         """JSON-ready state, serialized before another thread can feed the same tail."""
         with self._lock:
             state = self._read_state(thread_id)
-            return state.to_json() if state else None
+            if state is None:
+                return None
+            data = state.to_json()
+            try:
+                data["quiet"] = is_quiet(state.status, _signature(self._tails[thread_id].path)[1])
+            except OSError:
+                data["quiet"] = False
+            return data
 
     def _read_state(self, thread_id: str) -> ThreadState | None:
         path = self.find(thread_id)

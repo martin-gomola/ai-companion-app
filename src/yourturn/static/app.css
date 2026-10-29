@@ -245,7 +245,8 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 .open-codex:active { opacity: 0.8; }
 .status-body { display: grid; gap: var(--space-2); min-width: 0; }
 .status-kind, .recap-label { color: var(--color-text-muted); font-size: var(--text-label); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.02em; }
-[data-status="waiting"] .status-kind { color: var(--color-waiting); }
+[data-status="waiting"] .status-kind, [data-quiet="true"] .status-kind, .quiet-note { color: var(--color-waiting); }
+.quiet-note { font-size: var(--text-sm); }
 .status-text { font-size: var(--text-md); line-height: var(--leading-relaxed); overflow-wrap: anywhere; white-space: pre-wrap; }
 .status-body:not([data-kind="none"], [data-kind="unknown"]) .status-text { font-size: var(--text-lead); }
 .status-body[data-kind="none"] .status-text, .status-body[data-kind="unknown"] .status-text { color: var(--color-text-muted); }

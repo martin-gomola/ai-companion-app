@@ -3,13 +3,17 @@ from __future__ import annotations
 import io
 import json
 import re
+import time
 from pathlib import Path
 
-from conftest import OTHER, SUBAGENT, THREAD, event, item, meta, write_rollout
+import pytest
+from conftest import OTHER, SUBAGENT, THREAD, command, edit, event, item, meta, write_rollout
 from fastapi.testclient import TestClient
 
+from yourturn import rollout
 from yourturn.app import create_app
 from yourturn.mcp import serve
+from yourturn.rollout import QUIET_SECONDS, Sessions
 
 
 def client(codex_home: Path) -> TestClient:
@@ -40,6 +44,33 @@ def test_needs_you_is_computed_server_side(codex_home: Path) -> None:
     assert app.get(f"/api/threads/{SUBAGENT}").json()["needs_you"] is False
 
 
+def test_working_chat_turns_quiet_when_its_file_stops_changing(codex_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_rollout(codex_home, OTHER, [meta(OTHER), event("2026-10-27T10:00:00Z", {"type": "task_started"})])
+    sessions = Sessions(codex_home)
+    assert {entry["id"]: entry["quiet"] for entry in sessions.inbox()} == {THREAD: False, OTHER: False}
+    before = sessions.inbox_fingerprint()
+
+    later = time.time() + QUIET_SECONDS + 1
+    monkeypatch.setattr(rollout.time, "time", lambda: later)
+    assert sessions.inbox_fingerprint() != before, "turning quiet must reach the live inbox without a file write"
+    assert {entry["id"]: entry["quiet"] for entry in sessions.inbox()} == {THREAD: False, OTHER: True}, "a finished chat is never quiet"
+    assert sessions.snapshot(OTHER)["quiet"] is True
+    assert sessions.snapshot(THREAD)["quiet"] is False
+
+
+def test_inbox_reports_failed_and_unchecked_turns(codex_home: Path) -> None:
+    start = event("2026-10-27T10:00:00Z", {"type": "task_started"})
+    end = event("2026-10-27T10:00:09Z", {"type": "task_complete"})
+    write_rollout(codex_home, OTHER, [meta(OTHER), start, edit("2026-10-27T10:00:01Z", "/w/repo/a.py"),
+                                      command("2026-10-27T10:00:02Z", "uv run pytest", 0),
+                                      edit("2026-10-27T10:00:03Z", "/w/repo/b.py"), end])
+    write_rollout(codex_home, SUBAGENT, [meta(SUBAGENT), start, edit("2026-10-27T10:00:01Z", "/w/repo/a.py"),
+                                         command("2026-10-27T10:00:02Z", "uv run pytest", 0), end])
+    states = {entry["id"]: entry["check_state"] for entry in client(codex_home).get("/api/inbox").json()}
+
+    assert states == {THREAD: "failed", OTHER: "unchecked", SUBAGENT: ""}
+
+
 def test_stream_sends_the_current_inbox_first(codex_home: Path) -> None:
     polls = iter([False, True])
     app = TestClient(create_app(codex_home, poll_seconds=0, should_stop=lambda: next(polls, True)), base_url="http://127.0.0.1")
@@ -67,6 +98,7 @@ def test_serves_page_with_policy_and_only_loopback(codex_home: Path) -> None:
 
     assert page.status_code == 200 and "script-src 'self'" in page.headers["content-security-policy"]
     assert app.get("/assets/app.js").headers["content-type"].startswith("text/javascript")
+    assert app.get("/assets/icon-alert.svg").headers["content-type"].startswith("image/svg+xml")
     referenced = re.findall(r'(?:src|href)="(/assets/[^"]+)"', page.text)
     assert referenced and all(app.get(path).status_code == 200 for path in referenced)
     assert app.get("/assets/secrets.txt").status_code == 404
