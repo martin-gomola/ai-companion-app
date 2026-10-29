@@ -226,7 +226,7 @@ function renderSection({ key, label }, chats) {
   if (capped) {
     const item = el("li");
     const more = el("a", "show-all");
-    more.href = `/?status=${key}`;
+    more.href = inboxUrl(key, openId);
     more.append(el("span", "", `Show all ${chats.length}`), icon("i-chevron"));
     item.append(more);
     list.append(item);
@@ -293,6 +293,7 @@ function renderInbox(chats) {
   $("filter-empty").textContent = inboxStatus ? INBOX_FILTERS[inboxStatus].empty : "";
   for (const segment of document.querySelectorAll(".segment")) {
     const kind = segment.dataset.kind;
+    segment.href = inboxUrl(kind, openId);
     const count = kind ? groups.get(kind).length : chats.length;
     segment.dataset.empty = String(count === 0);
     segment.querySelector(".segment-count").textContent = count;
@@ -652,9 +653,9 @@ function renderThread(thread) {
 
 // Board panel
 
-function panelUrl(id) {
+function inboxUrl(status, id) {
   const query = new URLSearchParams();
-  if (inboxStatus) query.set("status", inboxStatus);
+  if (status) query.set("status", status);
   if (id) query.set("open", id);
   const text = query.toString();
   return text ? `/?${text}` : "/";
@@ -694,7 +695,7 @@ function showPanel(id) {
 
 function closePanel() {
   const id = openId;
-  history.pushState(null, "", panelUrl(""));
+  history.pushState(null, "", inboxUrl(inboxStatus, ""));
   showPanel("").then(() => cardFor(id)?.focus());
 }
 
@@ -704,7 +705,7 @@ if (!threadId) {
     if (!link || !board.matches || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const id = new URLSearchParams(link.search).get("thread");
-    if (id !== openId) history.pushState(null, "", panelUrl(id));
+    if (id !== openId) history.pushState(null, "", inboxUrl(inboxStatus, id));
     showPanel(id);
   });
   $("panel-close").addEventListener("click", closePanel);

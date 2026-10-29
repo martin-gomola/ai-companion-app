@@ -59,7 +59,8 @@ Codex controls.
   empty placeholder when a column has no chats. Columns show every chat as a separate card and
   scroll on their own; the page itself does not scroll. Cards cannot be dragged: a chat's column
   follows its state in Codex.
-- A selected segment narrows the board to that one column.
+- A selected segment narrows the board to that one column. With a chat open, segments and Show all
+  rows filter the list beside it and keep the chat open.
 - Clicking a card opens that chat in a panel on the right. The open chat is the priority, so the
   panel takes most of the width (content capped at the reading width and centered in the pane, as
   Codex centers its conversation) and the board collapses into
