@@ -21,6 +21,7 @@ const STATUS = {
   idle: { label: "Not started", icon: "i-turn" },
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
+const SECTION_ICONS = { waiting: "i-question", working: "i-working", new: "i-answer", earlier: "i-turn" };
 const NEXT_LABEL = { answer: "Answer", review: "Review", approve: "Approve", run: "Run", decide: "Decide", do: "To do" };
 const STEP_LABEL = {
   command: "Ran a command", edit: "Edited files", tool: "Called a tool", thinking: "Reasoning", agent: "Delegated work",
@@ -72,12 +73,26 @@ function syncSpin(use) {
   use.style.animationDelay = `-${performance.now() % 1400}ms`;
 }
 
+const ROW_ICONS = {
+  "files-summary": "i-edit", "decision-history-summary": "i-decision", "earlier-summary": "i-turn",
+  "activity-summary": "i-thinking", "session-summary": "i-agent",
+};
+
+function tone(name, kind) {
+  const chip = el("span", "tone");
+  chip.dataset.tone = kind;
+  chip.append(icon(name));
+  return chip;
+}
+
 function rowLabel(id, text, value = "") {
   const target = $(id);
   if (!target.querySelector(".row-label")) {
+    const lead = icon(ROW_ICONS[id]);
+    lead.classList.add("row-icon");
     const chevron = icon("i-chevron");
     chevron.classList.add("disclosure-chevron");
-    target.replaceChildren(el("span", "row-label"), el("span", "row-value"), chevron);
+    target.replaceChildren(lead, el("span", "row-label"), el("span", "row-value"), chevron);
   }
   const label = target.querySelector(".row-label");
   if (label.textContent !== text) label.textContent = text;
@@ -200,7 +215,7 @@ function renderSection({ key, label }, chats) {
   wrap.dataset.section = key;
   const title = el("h2", "group-title");
   title.id = `section-${key}`;
-  title.append(el("span", "", label), el("span", "group-count", String(chats.length)));
+  title.append(tone(SECTION_ICONS[key], key === "earlier" ? "muted" : key), el("span", "", label), el("span", "group-count", String(chats.length)));
   wrap.setAttribute("aria-labelledby", title.id);
   const list = el("ol", "list");
   list.replaceChildren(...chats.slice(0, capped ? SECTION_LIMIT : chats.length).map(renderRow));

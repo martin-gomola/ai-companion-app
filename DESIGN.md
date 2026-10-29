@@ -126,13 +126,22 @@ value; `app.css` only consumes tokens. No UI library, remote font, or image depe
 - Status color roles: orange for needs you, purple for working, green for new or passed results,
   red for failures and stopped turns, grey for history. Blue is the accent for links, the back link,
   selected segments, and Open in Codex. Color always accompanies a label or glyph.
+- Pictograms carry the structure so a long chat stays scannable. Every section title starts with a
+  tinted icon chip in its role color: What happened (blue, message), Changes and checks (green,
+  terminal), Decisions (purple, branch), More (grey); inbox sections use their status color and
+  glyph. Disclosure rows lead with a muted icon. The agent's decision has a purple edge and label.
+- The status card reads like an alert: a 4px left edge in the status color and, for needs you,
+  working, and stopped, a 6% tint of that color. 6% keeps every text role at 4.5:1. On phones,
+  disclosure-row values move under their label instead of squeezing it.
 - Type: the native system font. Large titles for page names, semibold section text, regular body.
   Mono only for commands and paths. Section headers are bold sentence-case text with a muted count.
 - Groups and cards use 10px corners and controls 8px; inner shapes stay concentric. Separators are
   inset to the text column. Filled actions (Open in Codex, selected segment and chip) are flat
   accent fills. Controls keep 44px targets even though Codex's own controls are smaller.
-- Motion: the working glyph rotates continuously without restarting on updates, and disclosure
-  chevrons rotate. Reduced motion removes both.
+- Motion: the working glyph rotates continuously without restarting on updates; a needs-you
+  status glyph and the live dot pulse softly; chat sections rise in one after another when a chat
+  opens (240ms, 40ms apart); disclosure chevrons rotate. Inbox rows do not animate because they
+  re-render on every update. Reduced motion removes all of it.
 
 ## Accessibility
 

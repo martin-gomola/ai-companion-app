@@ -222,3 +222,12 @@ Dated delivery checks for the [design contract](../DESIGN.md).
   the centered list. Board columns have 32px page margins, 20px gaps, and a stable scrollbar gutter
   with 8px between cards and the scrollbar. Board and panel at 1280 and 1440px, the list at 1024px,
   and phone widths in both themes showed no overflow or controls under 44px.
+
+## Pictograms, status tint, and motion on 2026-10-29
+
+- Section titles carry tinted icon chips, disclosure rows lead with icons, and the status card has a
+  colored left edge and a 6% status tint. Computed contrast on the tinted card stays at least 4.5:1
+  for ink, muted, and body text in both themes (worst: light waiting ink 4.63:1).
+- With motion allowed, the needs-you glyph, the live dot, and the chat sections animate; with
+  reduced motion emulated, no animations run and every section is fully opaque. Phone, 200% text,
+  and board views showed no overflow or controls under 44px.
