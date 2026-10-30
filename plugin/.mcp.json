@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "your-turn": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "repo=\"${YOUR_TURN_REPO:-$HOME/dev/your-turn}\"; if [ -f \"$repo/pyproject.toml\" ]; then cd \"$repo\" && exec uv run --quiet yourturn mcp; fi; exec uvx --quiet --from git+https://github.com/martin-gomola/your-turn yourturn mcp"
+      ],
+      "enabled": true,
+      "startup_timeout_sec": 60,
+      "note": "Runs from a repo checkout at $YOUR_TURN_REPO or $HOME/dev/your-turn when present, otherwise from GitHub through uvx. The first uvx start downloads the package."
+    }
+  }
+}

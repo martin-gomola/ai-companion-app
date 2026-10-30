@@ -1,0 +1,20 @@
+{
+  "name": "your-turn",
+  "version": "0.1.0",
+  "description": "Read-only inbox view of what the current Codex chat is doing and the decisions it makes.",
+  "author": { "name": "Martin Gomola" },
+  "license": "MIT",
+  "keywords": ["inbox", "agents", "dashboard", "decisions", "observability"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Your Turn",
+    "shortDescription": "See what the agent is doing and why",
+    "longDescription": "Ends every turn with a short Outcome and Next step that the local dashboard at http://127.0.0.1:8787 turns into an inbox of your chats, and lets the agent log the decisions it makes.",
+    "developerName": "Martin Gomola",
+    "category": "Productivity",
+    "capabilities": ["Instructions"],
+    "defaultPrompt": ["End your answers in the Your Turn handoff format."],
+    "brandColor": "#4F9A8B"
+  }
+}

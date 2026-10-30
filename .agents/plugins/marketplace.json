@@ -1,0 +1,19 @@
+{
+  "name": "your-turn",
+  "interface": {
+    "displayName": "Your Turn"
+  },
+  "plugins": [
+    {
+      "name": "your-turn",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

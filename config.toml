@@ -1,0 +1,2 @@
+# Chats updated within this many days appear in the inbox. Restart the server after changes.
+history_days = 14

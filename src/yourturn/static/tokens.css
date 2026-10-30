@@ -1,0 +1,137 @@
+:root {
+  color-scheme: light;
+  /* Shared day/night architecture; all interface text remains neutral. */
+  --color-bg: #fcfbfa;
+  --color-surface: #fcfbfa;
+  --color-sidebar: #faf9f7;
+  --color-surface-pressed: rgb(129 139 152 / 0.08);
+  --color-fill: #f0efec;
+  --color-separator: #dededb;
+  --color-border-strong: #818b98;
+  --color-text: #1b201d;
+  --color-text-muted: #626663;
+  --color-accent: #198038;
+  --color-accent-fill: #198038;
+  --color-nav-selected: #146b30;
+  --color-on-accent: #ffffff;
+
+  --edge: inset 0 0 0 var(--size-hairline) var(--color-separator);
+
+  /* Status roles: ink is for text, fill sits behind an on-status glyph. */
+  --color-waiting: #bc4c00;
+  --color-waiting-fill: #bc4c00;
+  --color-waiting-soft: #fff1e5;
+  --color-working: #8250df;
+  --color-working-fill: #8250df;
+  /* New results use Slido Teal so they never read as the green accent. */
+  --color-new: #28726d;
+  --color-new-fill: #28726d;
+  --color-danger: #cf222e;
+  --color-danger-fill: #cf222e;
+  --color-history-fill: #818b98;
+  --color-on-status: #ffffff;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-label: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lead: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-tight: 1.2;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.55;
+
+  /* Spacing and glyphs stay fixed while text scales, as with iOS Dynamic Type. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  --size-icon: 18px;
+  --size-glyph: 30px;
+  --size-control: 44px;
+  --size-node: 28px;
+  --size-line: 2px;
+  --size-hairline: 1px;
+  --page-max: 52rem;
+  --motion-fast: 120ms;
+  --motion-status-working: 1.4s;
+  --motion-enter: 240ms;
+  --motion-pulse: 2s;
+  --size-tone: 26px;
+  --sidebar-width: 80px;
+  --page-inset: 40px;
+  --page-inset-end: 32px;
+  --hero-height: 284px;
+  --hero-pinned: 72px;
+  --content-inset: var(--space-6);
+  --header-art: url('/assets/header-light.webp');
+  --glass-fill: color-mix(in srgb, var(--color-bg) 64%, transparent);
+  --glass-edge: color-mix(in srgb, var(--color-separator) 70%, transparent);
+  --text-display: 76px;
+  --text-intro: 26px;
+  --text-navigation: 20px;
+  --text-row: 20px;
+  --text-preview: 18px;
+  --text-section: 24px;
+  --size-row-glyph: 52px;
+  --size-section-glyph: 48px;
+  --row-height: 72px;
+  --dialog-shadow: 0 24px 80px #0003;
+  --backdrop: #17171766;
+  /* At 6% every text and status ink stays at 4.5:1 on the tinted surface. */
+  --tint-soft: 6%;
+  --tint-tone: 8%;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #151515;
+  --color-surface: #1b1a1a;
+  --color-sidebar: #1b1a1a;
+  --color-surface-pressed: rgb(255 255 255 / 0.06);
+  --color-fill: #131313;
+  --color-separator: #30302e;
+  --color-border-strong: #858585;
+  --color-text: #e6e6e6;
+  --color-text-muted: #a5a5a5;
+  --header-art: url('/assets/header-dark.webp');
+  --glass-fill: color-mix(in srgb, var(--color-bg) 76%, transparent);
+  --tint-tone: 14%;
+  --color-accent: #42a65f;
+  --color-nav-selected: #42a65f;
+  --color-accent-fill: #198038;
+  --color-on-accent: #ffffff;
+
+  --color-waiting: #f28c48;
+  --color-waiting-fill: #f28c48;
+  --color-waiting-soft: #3a2a14;
+  --color-working: #ad7bf9;
+  --color-working-fill: #ad7bf9;
+  --color-new: #22aba2;
+  --color-new-fill: #22aba2;
+  --color-danger: #f48771;
+  --color-danger-fill: #fa423e;
+  --color-history-fill: #6e6e6e;
+  --color-on-status: #000000;
+}
+
+@media (prefers-contrast: more) {
+  :root, :root[data-theme] { --color-separator: var(--color-border-strong); }
+}
