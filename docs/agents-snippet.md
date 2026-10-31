@@ -5,8 +5,7 @@ and `Next step` lines, plus a `Recap` line from the second turn on. If you do no
 the plugin, paste the block below into an `AGENTS.md` file instead. Use `~/.codex/AGENTS.md` for
 all chats, or a repo's `AGENTS.md` for chats in that repo.
 
-The block leaves out the plugin's decision logging, because the `log_decision` tool needs the
-plugin's MCP server. Without it, Your Turn still shows the questions Codex asked you.
+The handoff is plain text, so the block below gives Your Turn everything the plugin does.
 
 ```markdown
 ## Your Turn handoff
@@ -31,7 +30,11 @@ turn:
 
 **Recap:** <one or two sentences: the chat's goal, what is settled, what is still open>
 
-Do not repeat the next step in the recap. Then write the details as usual, but keep them short.
+Do not repeat the next step in the recap. For each real choice you made between alternatives, add:
+
+**Decision:** <the choice, as a question> -> <what you chose> (over <the alternatives>). <one-sentence reason>
+
+Then write the details as usual, but keep them short.
 Do not repeat the outcome, and do not list changed files or test results.
 
 Before you hand off, run the checks that cover your last code edit. If a check still fails, say so

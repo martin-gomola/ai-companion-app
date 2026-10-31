@@ -23,7 +23,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/yourturn"]
 
-# The handoff skill and MCP server definition, which `your-turn install` copies to Claude Code and Cursor.
+# The handoff skill, which `your-turn install` copies to Claude Code and Cursor.
 [tool.hatch.build.targets.wheel.force-include]
 "plugin" = "yourturn/plugin"
 

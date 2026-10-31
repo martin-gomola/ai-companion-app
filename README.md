@@ -64,7 +64,7 @@ uvx --from git+https://github.com/martin-gomola/your-turn your-turn serve
 2. `serve` starts the inbox on [http://127.0.0.1:8787](http://127.0.0.1:8787) and runs until you
    press Ctrl+C.
 3. Restart the apps. From then on, agents end each answer with an Outcome, a Next step, and a
-   Recap, say which checks they ran, ask their questions with options, and log their decisions.
+   Recap, say which checks they ran, ask their questions with options, and note their decisions.
    That is what makes the recaps exact.
 
 Everything goes into your own app folders, never into a project, so no repository gains a file or
@@ -72,11 +72,13 @@ a `.gitignore` entry:
 
 | App | What `install` sets up |
 | --- | --- |
-| Codex | The `your-turn` plugin: the handoff skill and the `log_decision` MCP server |
-| Claude Code | `~/.claude/skills/your-turn/SKILL.md`, a marked `your-turn` block in `~/.claude/CLAUDE.md`, and the MCP server at user scope (through the `claude` CLI) |
-| Cursor | `~/.cursor/skills/your-turn/SKILL.md` and the MCP server in `~/.cursor/mcp.json` |
+| Codex | The `your-turn` plugin, which holds the handoff skill |
+| Claude Code | `~/.claude/skills/your-turn/SKILL.md` and a marked `your-turn` block in `~/.claude/CLAUDE.md` |
+| Cursor | `~/.cursor/skills/your-turn/SKILL.md` |
 
-Running it again changes nothing, and it leaves the rest of `CLAUDE.md` and `mcp.json` as it was.
+The handoff is plain text in the agent's answer, so nothing runs in the background and no app asks
+for a permission. Running `install` again changes nothing, and it leaves the rest of `CLAUDE.md` as
+it was. It also removes the `your-turn` MCP server that earlier versions registered.
 `--harness codex`, `claude`, `cursor` or `all` picks the apps yourself. `your-turn uninstall` takes
 the same options and removes exactly what `install` added.
 
@@ -88,7 +90,7 @@ Your existing chats from all three apps appear right away. Next time, run only `
 | You want | Do this |
 | --- | --- |
 | Only the inbox, no handoff | Run only `serve`. Recaps fall back to the first paragraph of each answer and a guessed next step. |
-| The handoff format without installing anything | Paste [docs/agents-snippet.md](./docs/agents-snippet.md) into the app's global instructions, such as `~/.codex/AGENTS.md`. Decisions are then not logged. |
+| The handoff format without installing anything | Paste [docs/agents-snippet.md](./docs/agents-snippet.md) into the app's global instructions, such as `~/.codex/AGENTS.md`. |
 | To develop Your Turn | Clone the repo and run `make install`. The plugin then runs from your checkout, and the server starts in the background. If the clone is not at `~/dev/your-turn`, set `YOUR_TURN_REPO` in the environment Codex runs in. |
 
 </details>
@@ -126,7 +128,7 @@ The apps do not record the same things, so each chat shows only what its source 
 | Check results | Real exit codes | Pass or fail (tool error flag) | Not recorded |
 | Timestamps | Per event | Per event | Per turn |
 | Token usage | Yes | Yes | No |
-| Handoff from `install` | Plugin (skill, `log_decision`) | Skill, `CLAUDE.md` block, `log_decision` | Skill, `log_decision` |
+| Handoff from `install` | Plugin with the skill | Skill and `CLAUDE.md` block | Skill |
 | Chat action | **Open in Codex** | **Copy resume command** (`claude --resume <id>`) | **Open in Cursor** (project folder) |
 
 | Part | What it does |
@@ -144,7 +146,11 @@ Recaps come from the agent's final answer:
 | If the final answer has | Your Turn shows |
 | --- | --- |
 | `**Outcome:**`, `**Next step:**`, and `**Recap:**` lines | Those lines as written |
+| `**Decision:** <question> -> <chosen> (over <alternatives>). <reason>` lines | One decision each, with its options; `→` works too |
 | No handoff lines | The first paragraph as the outcome, and a best-guess next step: Run, Review, or Answer |
+
+Decisions that older Codex, Claude Code, and Cursor chats logged through the `log_decision` tool
+still show.
 
 A chat lands in **Needs you** when it has an unanswered question, a pending Cursor approval, or a
 finished turn whose next step is Answer, Review, Approve, Run, Decide, or Do. A check is a command
@@ -190,7 +196,6 @@ older chats.
 | Claude Code | The tool call waiting on approval is known | Quiet names it, such as `Bash: make deploy` |
 | Claude Code | No exit codes, only error or not | Checks show pass or fail without the code |
 | Claude Code | No chat deep link | **Copy resume command** |
-| Claude Code | MCP server needs the `claude` CLI on `PATH` | Without it, decisions are not logged |
 | Cursor | Approvals are logged | Needs you with **Approve pending action in Cursor**; ignored after 24 hours without activity |
 | Cursor | Transcripts record commands, not results | No pass or fail; timeline times per turn |
 | Cursor | Chats without a transcript | Title, folder, branch and edited files only; Working only if updated in the last two minutes |
@@ -224,10 +229,10 @@ dashboards, and Google PAIR's guidance on showing when to trust an AI. The full 
 | `GET /api/stream?thread=<key>` | Server-sent events when that chat changes; without `thread`, inbox events |
 
 ```text
-src/yourturn/                 FastAPI server, session engine, and MCP server
+src/yourturn/                 FastAPI server, session engine, and installer
 src/yourturn/harness/         One adapter per app: Codex, Claude Code, Cursor
 src/yourturn/static/          Dashboard HTML, CSS tokens, and JavaScript
-plugin/                       Codex plugin: manifest, MCP config, your-turn-handoff skill
+plugin/                       Codex plugin: manifest and the your-turn-handoff skill
 tests/                        Parser and API tests
 scripts/                      Demo-data screenshot and GIF generator for this README
 docs/images/                  README images

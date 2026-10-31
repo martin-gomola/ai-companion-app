@@ -8,10 +8,12 @@ from pathlib import Path
 import pytest
 
 from yourturn.cli import main
-from yourturn.install import CLAUDE_BLOCK, END, START, install, mcp_server, uninstall
+from yourturn.install import CLAUDE_BLOCK, END, START, install, uninstall
 
 MINE = "# My rules\n\nKeep answers short.\n"
 OTHER = {"mcpServers": {"context7": {"command": "npx", "args": ["context7"]}}}
+# What an earlier version added to Cursor's mcp.json.
+LEGACY = {"your-turn": {"type": "stdio", "command": "bash", "args": ["-lc", "uvx yourturn mcp"]}}
 
 
 def _homes(tmp_path: Path) -> dict[str, Path]:
@@ -59,9 +61,11 @@ def test_install_is_global_idempotent_and_uninstall_restores_the_files(tmp_path:
     cursor_skill = (homes["cursor"] / "skills" / "your-turn" / "SKILL.md").read_text()
     assert "name: your-turn\n" in claude_skill and "Claude Code" in claude_skill and "`AskUserQuestion`" in claude_skill
     assert "Cursor" in cursor_skill and "`AskQuestion`" in cursor_skill and "Codex" not in cursor_skill
-    assert "**Outcome:**" in cursor_skill and "**Next step:**" in cursor_skill
+    assert "**Outcome:**" in cursor_skill and "**Next step:**" in cursor_skill and "**Decision:**" in cursor_skill
+    assert "log_decision" not in cursor_skill and "MCP" not in cursor_skill
     assert (homes["claude"] / "CLAUDE.md").read_text() == f"{MINE}\n{CLAUDE_BLOCK}"
-    assert json.loads((homes["cursor"] / "mcp.json").read_text())["mcpServers"] == {**OTHER["mcpServers"], "your-turn": mcp_server()}
+    assert "**Decision:**" in CLAUDE_BLOCK
+    assert json.loads((homes["cursor"] / "mcp.json").read_text()) == OTHER  # Not touched: nothing to register.
     # Nothing lands in the project, and Codex (not selected) is untouched.
     assert list(no_clis.iterdir()) == [] and list(homes["codex"].iterdir()) == []
 
@@ -90,28 +94,32 @@ def test_block_is_replaced_in_place_and_files_it_created_are_removed(tmp_path: P
     memory.unlink()
     install(["claude", "cursor"], homes)
     uninstall(["claude", "cursor"], homes)
-    assert not memory.exists() and not (homes["cursor"] / "mcp.json").exists()
+    assert not memory.exists() and list(homes["cursor"].iterdir()) == [homes["cursor"] / "skills"]
 
 
-def test_invalid_cursor_mcp_json_is_left_alone(tmp_path: Path, no_clis: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_install_removes_the_mcp_server_an_earlier_version_added(tmp_path: Path, no_clis: Path) -> None:
     homes = _homes(tmp_path)
-    (homes["cursor"] / "mcp.json").write_text("{not json")
+    mcp = homes["cursor"] / "mcp.json"
+    mcp.write_text(json.dumps({"mcpServers": {**OTHER["mcpServers"], **LEGACY}}))
     install(["cursor"], homes)
-    assert (homes["cursor"] / "mcp.json").read_text() == "{not json"
-    assert "is not valid JSON" in capsys.readouterr().out
+    assert json.loads(mcp.read_text()) == OTHER
+    # A file that held only our server goes away; an unreadable one is left alone.
+    mcp.write_text(json.dumps({"mcpServers": LEGACY}))
+    install(["cursor"], homes)
+    assert not mcp.exists()
+    mcp.write_text("{not json")
+    uninstall(["cursor"], homes)
+    assert mcp.read_text() == "{not json"
 
 
-def test_claude_mcp_server_goes_through_the_claude_cli_at_user_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_claude_legacy_mcp_server_is_removed_through_the_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     homes = _homes(tmp_path)
     log = _fake(tmp_path, "claude", monkeypatch)
     install(["claude"], homes)
     uninstall(["claude"], homes)
     home = str(homes["claude"])
-    assert log.read_text().splitlines() == [
-        f"{home}|mcp remove --scope user your-turn",
-        f"{home}|mcp add-json --scope user your-turn {json.dumps(mcp_server())}",
-        f"{home}|mcp remove --scope user your-turn",
-    ]
+    # Only ever removed: nothing is added at user scope any more.
+    assert log.read_text().splitlines() == [f"{home}|mcp remove --scope user your-turn"] * 2
 
 
 def test_codex_uninstall_removes_the_plugin_and_marketplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

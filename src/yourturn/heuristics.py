@@ -41,6 +41,10 @@ FINAL_ASKS = (
     ("answer", re.compile(r"\b(?:let me know (?:whether|which)|would you like|do you want|should i|shall i)\b", re.IGNORECASE)),
 )
 FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
+# `Decision: <question> -> <chosen> (over <alternatives>). <reason>`, bold or plain, `->` or `→`.
+DECISION = re.compile(r"^[ \t#>*_-]*decision[*_ \t]*:[*_ \t]*(.+?)\s*(?:->|→)\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+OVER = re.compile(r"^(.*?)\s*\(over ([^)]*)\)\.?\s*(.*)$", re.IGNORECASE)
+ALTERNATIVES = re.compile(r"\s*(?:,|\bor\b)\s*")
 
 
 def normalize_text(text: str) -> str:
@@ -83,6 +87,24 @@ def parse_answer(text: str) -> tuple[str, str, str, bool]:
         else:
             kind = "do"
     return clip(outcome, 200), kind, step_text, True
+
+
+def parse_decisions(text: str) -> list[dict[str, Any]]:
+    """Every `Decision:` line of an answer as `{question, options, chosen, reason}` (chosen first in options)."""
+    decisions = []
+    for match in DECISION.finditer(FENCE.sub("", text)):
+        question, rest = match.group(1), match.group(2)
+        if over := OVER.match(rest):
+            chosen, others, reason = over.group(1), [o for o in ALTERNATIVES.split(over.group(2)) if o.strip()], over.group(3)
+        else:
+            chosen, _, reason = rest.partition(". ")
+            others = []
+        chosen = clip(chosen.rstrip(" ."), 120)
+        if not chosen:
+            continue
+        options = [chosen, *(clip(option, 120) for option in others)]
+        decisions.append({"question": clip(question.rstrip(" ?") + "?"), "options": options, "chosen": chosen, "reason": clip(reason)})
+    return decisions
 
 
 def parse_recap(text: str) -> str:

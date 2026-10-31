@@ -277,3 +277,11 @@ def test_tool_call_without_a_result_is_reported_until_it_returns(tmp_path: Path)
         handle.write(json.dumps(user(5, [{"type": "text", "text": "[Request interrupted by user]"}])) + "\n")
     folder.fold_many(cursor.read_new())
     assert (folder.status, folder.inbox_fields()["pending_tool"]) == ("interrupted", "")
+
+
+def test_decision_lines_in_the_final_answer_become_agent_decisions(tmp_path: Path) -> None:
+    folder = _fold(_write(tmp_path, _turn(FINAL + "\n**Decision:** Patch or rewrite? -> patch (over rewrite). Smaller diff.")))
+    (decision,) = folder.decisions
+    assert (decision.source, decision.question, decision.options, decision.chosen, decision.reason, decision.turn) == (
+        "agent", "Patch or rewrite?", ["patch", "rewrite"], "patch", "Smaller diff.", 1)
+    assert ("decision", "Patch or rewrite?") in [(step.kind, step.title) for step in folder.steps]

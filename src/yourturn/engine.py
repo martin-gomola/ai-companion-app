@@ -69,6 +69,7 @@ from yourturn.heuristics import (
     needs_you,
     normalize_text,
     parse_answer,
+    parse_decisions,
     parse_recap,
 )
 from yourturn.model import (
@@ -227,6 +228,8 @@ class TurnFolder:
     def _apply_answer(self, turn: Turn, at: str, text: str) -> None:
         turn.outcome, turn.next_kind, turn.next_text, turn.formatted = parse_answer(text)
         turn.recap = parse_recap(text)
+        for decision in parse_decisions(text):
+            self._decide(at, turn, decision)
         self.attention_key = ""
         if turn.next_kind not in {"unknown", "none"} and turn.next_text:
             self._attention(at, turn.next_kind, text)

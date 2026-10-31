@@ -15,7 +15,7 @@ install:
 	@codex plugin marketplace list 2>/dev/null | grep -q "^$(MARKETPLACE) " || codex plugin marketplace add "$(CURDIR)"
 	@codex plugin add $(PLUGIN)
 	@$(MAKE) --no-print-directory up
-	@echo "Installed $(PLUGIN). Restart Codex so it loads the skill and MCP server."
+	@echo "Installed $(PLUGIN). Restart Codex so it loads the skill."
 
 up:
 	@mkdir -p "$(STATE_DIR)"

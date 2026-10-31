@@ -1,6 +1,5 @@
 """`yourturn serve` runs the dashboard; `yourturn install` sets up the handoff for every agent app
-found (globally, never in a project) and exits; `yourturn uninstall` removes it; `yourturn mcp` is
-the handoff's MCP server."""
+found (globally, never in a project) and exits; `yourturn uninstall` removes it."""
 
 from __future__ import annotations
 
@@ -32,7 +31,6 @@ def main(argv: list[str] | None = None) -> None:
                              default=Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")))
         command.add_argument("--cursor-home", type=Path, default=Path.home() / ".cursor",
                              help="Cursor home holding projects/*/agent-transcripts (default: ~/.cursor)")
-    commands.add_parser("mcp", help="Run the stdio MCP server used by the Codex plugin")
     args = parser.parse_args(argv)
 
     if args.command in ("install", "uninstall"):
@@ -44,12 +42,6 @@ def main(argv: list[str] | None = None) -> None:
             parser.exit(1, f"Plugin install failed: {' '.join(error.cmd)}\n")
         if args.command == "install":
             print("Start the inbox with: your-turn serve", flush=True)
-        return
-
-    if args.command == "mcp":
-        from yourturn.mcp import serve as serve_mcp
-
-        serve_mcp()
         return
 
     import uvicorn

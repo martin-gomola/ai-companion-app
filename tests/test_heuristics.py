@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from yourturn.heuristics import check_state, check_status, is_check_command
+from yourturn.heuristics import check_state, check_status, is_check_command, parse_answer, parse_decisions
 from yourturn.model import Check, CheckState, Harness, SessionKey, Turn
 from yourturn.rollout import RolloutParser
 
@@ -76,3 +76,35 @@ def test_session_key_parse(raw: str, harness: Harness, native_id: str) -> None:
 def test_session_key_rejects(raw: str) -> None:
     with pytest.raises(ValueError):
         SessionKey.parse(raw)
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("**Decision:** Patch or rewrite the parser? -> patch (over rewrite). Smaller diff, same tests.",
+         ("Patch or rewrite the parser?", ["patch", "rewrite"], "patch", "Smaller diff, same tests.")),
+        ("Decision: Which store → SQLite (over Postgres, a JSON file or Redis). No server to run.",
+         ("Which store?", ["SQLite", "Postgres", "a JSON file", "Redis"], "SQLite", "No server to run.")),
+        ("- Decision: Cache the index? -> no. Reads are cheap.", ("Cache the index?", ["no"], "no", "Reads are cheap.")),
+        ("Decision: Pin uv -> 0.9.2", ("Pin uv?", ["0.9.2"], "0.9.2", "")),
+        ("decision: `fetch` or `httpx`? -> `httpx` (over `fetch`)", ("fetch or httpx?", ["httpx", "fetch"], "httpx", "")),
+    ],
+)
+def test_decision_lines_parse(line: str, expected: tuple[str, list[str], str, str]) -> None:
+    (decision,) = parse_decisions(f"**Outcome:** Done.\n**Next step:** none\n{line}\n\nDetails.")
+    assert (decision["question"], decision["options"], decision["chosen"], decision["reason"]) == expected
+
+
+def test_several_decisions_and_lines_that_are_not_decisions() -> None:
+    text = (
+        "**Outcome:** Shipped.\n**Next step:** none\n"
+        "**Decision:** Library? -> httpx (over requests). Async.\n"
+        "**Decision:** Retry? → yes. Flaky network.\n"
+        "The decision: was easy -> not a line of its own.\n"
+        "Decision: no arrow here\n"
+        "Decision: Empty? -> \n"
+        "```\nDecision: in code -> ignored\n```\n"
+    )
+    assert [d["chosen"] for d in parse_decisions(text)] == ["httpx", "yes"]
+    # Decision lines never become the outcome or the next step.
+    assert parse_answer(text)[:3] == ("Shipped.", "none", "")

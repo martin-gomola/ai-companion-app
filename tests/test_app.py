@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import re
 import time
@@ -13,7 +12,6 @@ from fastapi.testclient import TestClient
 
 from yourturn import rollout
 from yourturn.app import create_app
-from yourturn.mcp import serve
 from yourturn.rollout import QUIET_SECONDS, Sessions
 
 
@@ -138,25 +136,6 @@ def test_serves_binary_artwork_without_text_decoding(codex_home: Path, name: str
     assert response.headers["content-security-policy"].find("img-src 'self'") >= 0
     assert app.get("/assets/missing.webp").status_code == 404
     assert app.get("/assets/..%2Fheader-light.webp").status_code == 404
-
-
-def test_mcp_server_offers_only_log_decision() -> None:
-    requests = [
-        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
-        {"jsonrpc": "2.0", "method": "notifications/initialized"},
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "log_decision", "arguments": {"question": "q", "chosen": "A"}}},
-        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "set_active_thread", "arguments": {}}},
-    ]
-    out = io.StringIO()
-    serve(io.StringIO("".join(json.dumps(r) + "\n" for r in requests)), out)
-    replies = {reply["id"]: reply for reply in map(json.loads, out.getvalue().splitlines())}
-
-    assert set(replies) == {1, 2, 3, 4}
-    assert "can I trust it" in replies[1]["result"]["instructions"]
-    assert [tool["name"] for tool in replies[2]["result"]["tools"]] == ["log_decision"]
-    assert replies[3]["result"]["content"][0]["text"] == "Recorded decision: A"
-    assert replies[4]["result"]["isError"] is True
 
 
 def test_page_footer_uses_application_version(codex_home: Path) -> None:

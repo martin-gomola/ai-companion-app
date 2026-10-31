@@ -23,6 +23,23 @@ answer four questions in this order:
 A feature belongs only if it shortens one of these steps. Controlling agents, and dashboards read
 for their own sake, are out of scope.
 
+## Handoff contract
+
+Agents report through plain text in their final answer, written by the `your-turn` skill (Codex
+plugin, Claude Code and Cursor global skills, and a `CLAUDE.md` block). No MCP server or other
+process runs, so no app asks for a permission and nothing breaks when a tool is unavailable.
+
+| Line | Answers | Parsed into |
+| --- | --- | --- |
+| `**Outcome:** <sentence>` | What happened? | The turn's outcome |
+| `**Next step:** none \| answer: … \| review: … \| approve: … \| run: …` | What do I do next? | Next kind and text; an action puts the chat in Needs you |
+| `**Recap:** <sentences>` (second turn on) | What is this chat about? | The chat recap |
+| `**Decision:** <question> -> <chosen> (over <alternatives>). <reason>` | Why this way? | One agent decision per line (`→` accepted, `(over …)` optional) |
+
+Questions that block the agent go through the app's own question tool (`AskUserQuestion`,
+`AskQuestion`, Codex questions), so they show as pending with their options. `log_decision` tool
+calls in older transcripts still read as decisions.
+
 ## Environment
 
 - Responsive from 320px to desktop. An 80px icon rail provides Inbox, Settings and Help. The leaf mark is the

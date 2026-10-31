@@ -1,6 +1,6 @@
 ---
 name: your-turn-handoff
-description: End every turn with the Your Turn handoff (Outcome and Next step lines), run checks after your last code edit, and log real decisions with log_decision. Use for every task in Codex, so the user can see at a glance what happened and what they need to do.
+description: End every turn with the Your Turn handoff (Outcome and Next step lines), run checks after your last code edit, and record real choices as Decision lines. Use for every task in Codex, so the user can see at a glance what happened and what they need to do.
 metadata:
   version: "0.2.0"
 ---
@@ -47,6 +47,13 @@ ran after the last edit, and **Check failed** when a check's latest run failed. 
 
 ## Decisions
 
-When you pick between real alternatives (approach, dependency, scope, root cause, fix), call the
-`log_decision` tool from the `your-turn` server with `question`, `options`, `chosen`
-(worded as in `options`) and a one-sentence `reason`. Skip routine steps.
+When you picked between real alternatives this turn (approach, dependency, scope, root cause, fix),
+add one line per choice after the handoff lines:
+
+```
+**Decision:** <the choice, as a question> -> <what you chose> (over <the alternatives>). <one-sentence reason>
+```
+
+For example: `**Decision:** Patch or rewrite the parser? -> patch (over rewrite). Smaller diff, same tests.`
+Separate several alternatives with commas, and leave out `(over …)` when there were none worth naming.
+Skip routine steps.

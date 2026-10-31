@@ -30,7 +30,7 @@ def test_install_adds_marketplace_when_missing(tmp_path: Path, monkeypatch: pyte
 def test_install_reuses_existing_marketplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     log = fake_codex(tmp_path, monkeypatch, "MARKETPLACE  ROOT\\nyour-turn  /Users/me/your-turn\\n")  # pii:allow (fake path)
     assert install_plugin()
-    assert log.read_text().splitlines() == ["plugin marketplace list", "plugin add your-turn@your-turn"]
+    assert log.read_text().splitlines() == ["plugin marketplace list", "plugin marketplace upgrade your-turn", "plugin add your-turn@your-turn"]
 
 
 def test_install_without_codex_still_lets_the_inbox_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
