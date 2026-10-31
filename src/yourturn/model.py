@@ -248,6 +248,10 @@ class Capabilities:
     has_tool_calls: bool = False
     has_checks: bool = False
     live_tail: bool = False
+    turn_boundaries: bool = False  # The source marks turn start/end (else they are inferred).
+    exit_codes: bool = False  # Commands report real exit codes (else only success/failure).
+    approval_prompts: bool = False  # The source records tool-approval prompts.
+    structured_questions: bool = False  # Questions to the user come with explicit options.
 
 
 @dataclass(frozen=True, slots=True)

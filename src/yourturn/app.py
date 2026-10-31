@@ -34,11 +34,11 @@ def _static(name: str) -> str:
 
 def create_app(
     codex_home: Path, poll_seconds: float = POLL_SECONDS, should_stop: Callable[[], bool] = lambda: False,
-    history_days: int = DEFAULT_HISTORY_DAYS
+    history_days: int = DEFAULT_HISTORY_DAYS, claude_home: Path | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Your Turn", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOOPBACK_HOSTS)
-    hub = SessionHub.for_codex_home(codex_home)
+    hub = SessionHub.for_codex_home(codex_home, claude_home=claude_home)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Response:

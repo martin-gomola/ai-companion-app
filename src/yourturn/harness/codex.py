@@ -272,7 +272,10 @@ def parse_line(raw: bytes) -> dict[str, Any] | None:
 
 
 class CodexCursor:
-    """Byte-offset incremental reader over one rollout file (implements `EventCursor`)."""
+    """Byte-offset incremental reader over one rollout file (implements `EventCursor`).
+
+    Other JSONL harnesses subclass it and override `_parse`, `_events` and `_head_events`.
+    """
 
     def __init__(self, ref: SessionRef) -> None:
         if ref.path is None:
@@ -319,12 +322,23 @@ class CodexCursor:
             return
         self._offset, self._skip_partial = start, True
         try:
-            with self._path.open("rb") as handle:
-                metadata = json.loads(handle.readline())
-            if isinstance(metadata, dict) and metadata.get("type") == "session_meta":
-                self._head = record_to_events(metadata)
+            self._head = self._head_events()
         except (OSError, ValueError, TypeError, AttributeError):
             self._head = []
+
+    def _head_events(self) -> list[Event]:
+        """Header events replayed when reading starts mid-file: the session_meta first line."""
+        with self._path.open("rb") as handle:
+            metadata = json.loads(handle.readline())
+        if isinstance(metadata, dict) and metadata.get("type") == "session_meta":
+            return record_to_events(metadata)
+        return []
+
+    def _parse(self, raw: bytes) -> dict[str, Any] | None:
+        return parse_line(raw)
+
+    def _events(self, record: dict[str, Any]) -> list[Event]:
+        return record_to_events(record)
 
     def read_new(self) -> list[Event]:
         events, self._head = self._head, []
@@ -349,12 +363,12 @@ class CodexCursor:
                     if self._skip_partial:
                         self._skip_partial = False
                         continue
-                    record = parse_line(raw)
+                    record = self._parse(raw)
                     if record is None:
                         continue
                     # One unexpected record must not stop the rest of the file from being read.
                     try:
-                        events.extend(record_to_events(record))
+                        events.extend(self._events(record))
                     except (TypeError, AttributeError, ValueError):
                         continue
         except OSError:
@@ -376,6 +390,9 @@ class CodexAdapter:
         has_tool_calls=True,
         has_checks=True,
         live_tail=True,
+        turn_boundaries=True,
+        exit_codes=True,
+        structured_questions=True,
     )
 
     def __init__(

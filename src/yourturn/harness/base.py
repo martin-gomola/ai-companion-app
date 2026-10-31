@@ -19,6 +19,7 @@ class Meta:
 
     ts: datetime | None = None
     session_id: str | None = None
+    title: str | None = None
     cwd: str | None = None
     model: str | None = None
     model_provider: str | None = None

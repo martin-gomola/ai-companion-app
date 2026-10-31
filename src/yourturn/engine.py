@@ -54,6 +54,7 @@ from yourturn.harness.codex import (
     record_to_events,
     thread_id_of,
 )
+from yourturn.harness.claude import ClaudeAdapter
 from yourturn.heuristics import (
     check_key,
     check_state,
@@ -248,6 +249,8 @@ class TurnFolder:
         title = clip(str(question.get("title", "")))
         self.decisions.append(Decision(at, "asked", title, options, turn=turn.index))
         self._step(at, "question", title, " · ".join(options), "waiting")
+        # Asking blocks the agent until the user answers, even inside a turn (Claude Code).
+        self.status = "waiting"
 
     def _decide(self, at: str, turn: Turn, args: Any) -> None:
         options = [str(option) for option in args.get("options") or []]
@@ -301,6 +304,8 @@ class TurnFolder:
             self._tool(at, event)
 
     def _meta(self, event: Meta) -> None:
+        if event.title:
+            self.title = event.title
         if event.cwd is not None:
             self.cwd = event.cwd
         if event.model is not None:
@@ -375,6 +380,8 @@ class TurnFolder:
                 pending.remove(decision)
             turn.prompt = turn.prompt or f"Answered: {answer}"
             self._step(at, "user", f"You answered: {answer}", question)
+        if self.status == "waiting" and not self._pending():
+            self.status = "working"
 
     def _usage(self, at: str, event: Usage) -> None:
         total = (
@@ -781,7 +788,11 @@ class SessionHub:
         catalog: CodexCatalog | None = None,
         max_details: int = MAX_DETAILS,
     ) -> None:
-        self.adapters: list[HarnessAdapter] = list(adapters) if adapters is not None else [CodexAdapter(max_age_days=DEFAULT_HISTORY_DAYS)]
+        self.adapters: list[HarnessAdapter] = (
+            list(adapters)
+            if adapters is not None
+            else [CodexAdapter(max_age_days=DEFAULT_HISTORY_DAYS), ClaudeAdapter(max_age_days=DEFAULT_HISTORY_DAYS)]
+        )
         self.root = root
         self.tail_bytes = tail_bytes
         self.rescan_seconds = rescan_seconds
@@ -795,9 +806,13 @@ class SessionHub:
         self._lock = threading.RLock()
 
     @classmethod
-    def for_codex_home(cls, codex_home: Path, *, scan_ttl: float = 3.0) -> SessionHub:
+    def for_codex_home(cls, codex_home: Path, *, scan_ttl: float = 3.0, claude_home: Path | None = None) -> SessionHub:
+        """Codex catalog hub; `claude_home` also registers Claude Code sessions (adapter mode only)."""
+        adapters: list[HarnessAdapter] = [CodexAdapter(home=codex_home)]
+        if claude_home is not None:
+            adapters.append(ClaudeAdapter(home=claude_home))
         return cls(
-            [CodexAdapter(home=codex_home)],
+            adapters,
             root=codex_home,
             tail_bytes=INBOX_TAIL_BYTES,
             rescan_seconds=scan_ttl,
@@ -845,6 +860,9 @@ class SessionHub:
             tracked.folder = TurnFolder(tracked.ref)
         if events:
             tracked.folder.fold_many(events)
+        project_of = getattr(tracked.adapter, "project", None)
+        if callable(project_of) and not tracked.folder.project:
+            tracked.folder.project = project_of(tracked.ref)
         title_of = getattr(tracked.adapter, "title", None)
         if callable(title_of):
             title = title_of(tracked.ref)
