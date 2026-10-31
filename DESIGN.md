@@ -182,6 +182,14 @@ layout, responsive adaptation and small optical adjustments. No UI framework or 
   Selected green ink is darker in light mode to meet contrast over its tinted surface.
 - Native system typography. Desktop display title 76px, row title20px/regular,
   preview/project/age18px, section heading24px. Narrow panes use smaller display sizes and 16px prose.
+- Insets come from named tokens, not one-off values. `--page-inset` / `--page-inset-end` place
+  content (40/32px desktop, 24px medium, 20px phone). Inside a control, text starts at
+  `--inset-control` (16px) and a trailing indicator (chevron, divider) sits `--inset-indicator`
+  (12px) from the end. An icon-only control at a content edge bleeds by `--icon-bleed` so its glyph,
+  not its invisible 44px hit area, lines up with that edge (theme toggle on desktop, menu button on
+  phones). Styled selects use `appearance: none` with a `.select-chevron` at `--inset-indicator`;
+  Load more is centered under its list; the sticky chat pane header has a hairline bottom edge so
+  content scrolls under a boundary.
 - Fine 1.5–1.8px outline icons on very pale role chips, thin separators, open inbox sections.
   Existing chat-detail cards/disclosures retain their readable grouping. No colored side stripes.
 - A theme-specific local WebP header scene maintains its original green/ivory/brass/glass
