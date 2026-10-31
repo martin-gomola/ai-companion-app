@@ -1,6 +1,6 @@
-"""`yourturn serve` runs the dashboard; `yourturn install` first sets up the handoff for every agent
-app found (globally, never in a project); `yourturn uninstall` removes it; `yourturn mcp` is the
-handoff's MCP server."""
+"""`yourturn serve` runs the dashboard; `yourturn install` sets up the handoff for every agent app
+found (globally, never in a project) and exits; `yourturn uninstall` removes it; `yourturn mcp` is
+the handoff's MCP server."""
 
 from __future__ import annotations
 
@@ -16,11 +16,14 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="yourturn")
     commands = parser.add_subparsers(dest="command", required=True)
     for name, help_text in (("serve", "Run the dashboard on localhost"),
-                            ("install", "Set up the handoff for Codex, Claude Code and Cursor, then run the dashboard"),
+                            ("install", "Set up the handoff for Codex, Claude Code and Cursor"),
                             ("uninstall", "Remove the handoff that install set up")):
         command = commands.add_parser(name, help=help_text)
-        command.add_argument("--port", type=int, default=8787)
-        if name != "serve":
+        if name == "serve":
+            command.add_argument("--port", type=int, default=8787)
+            command.add_argument("--cursor-user-dir", type=Path, default=None,
+                                 help="Cursor user data folder holding globalStorage/state.vscdb (default: per OS)")
+        else:
             command.add_argument("--harness", choices=[*APPS, "all"], default=None,
                                  help="Only this app, or all three (default: every app whose folder exists)")
         command.add_argument("--codex-home", type=Path,
@@ -29,8 +32,6 @@ def main(argv: list[str] | None = None) -> None:
                              default=Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")))
         command.add_argument("--cursor-home", type=Path, default=Path.home() / ".cursor",
                              help="Cursor home holding projects/*/agent-transcripts (default: ~/.cursor)")
-        command.add_argument("--cursor-user-dir", type=Path, default=None,
-                             help="Cursor user data folder holding globalStorage/state.vscdb (default: per OS)")
     commands.add_parser("mcp", help="Run the stdio MCP server used by the Codex plugin")
     args = parser.parse_args(argv)
 
@@ -41,8 +42,9 @@ def main(argv: list[str] | None = None) -> None:
             (install if args.command == "install" else uninstall)(harnesses, homes)
         except subprocess.CalledProcessError as error:
             parser.exit(1, f"Plugin install failed: {' '.join(error.cmd)}\n")
-        if args.command == "uninstall":
-            return
+        if args.command == "install":
+            print("Start the inbox with: your-turn serve", flush=True)
+        return
 
     if args.command == "mcp":
         from yourturn.mcp import serve as serve_mcp
@@ -61,6 +63,6 @@ def main(argv: list[str] | None = None) -> None:
     except (OSError, ValueError) as error:
         parser.error(f"Cannot read Your Turn config: {error}")
 
-    print(f"Your Turn on http://127.0.0.1:{args.port}", flush=True)
+    print(f"Your Turn on http://127.0.0.1:{args.port}. It runs in this terminal until you press Ctrl+C.", flush=True)
     uvicorn.run(create_app(args.codex_home, history_days=history_days, claude_home=args.claude_home,
                            cursor_home=args.cursor_home, cursor_user_dir=args.cursor_user_dir), host="127.0.0.1", port=args.port, log_level="warning")

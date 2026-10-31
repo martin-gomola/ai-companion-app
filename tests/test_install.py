@@ -129,3 +129,10 @@ def test_cli_uninstall_only_touches_apps_that_are_present(tmp_path: Path, no_cli
           "--cursor-home", str(tmp_path / "no-cursor")])
     assert not (claude / "skills" / "your-turn").exists() and not (claude / "CLAUDE.md").exists()
     assert not (tmp_path / "no-codex").exists() and not (tmp_path / "no-cursor").exists()
+
+
+def test_cli_install_exits_after_setup(tmp_path: Path, no_clis: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    claude = tmp_path / "claude"
+    main(["install", "--harness", "claude", "--claude-home", str(claude)])  # Returns instead of serving.
+    assert (claude / "skills" / "your-turn" / "SKILL.md").is_file()
+    assert capsys.readouterr().out.endswith("Start the inbox with: your-turn serve\n")

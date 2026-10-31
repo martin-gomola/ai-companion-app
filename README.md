@@ -11,7 +11,7 @@ can trust it, and what to do next.**
 ![Read-only](https://img.shields.io/badge/Access-Read--only-256356)
 ![Works with Codex · Claude Code · Cursor](https://img.shields.io/badge/Works%20with-Codex%20%C2%B7%20Claude%20Code%20%C2%B7%20Cursor-56645f)
 
-[Start](#start-in-one-command) · [How it works](#how-it-works) · [Design](#design) ·
+[Start](#start) · [How it works](#how-it-works) · [Design](#design) ·
 [Development](#development)
 
 <img src="docs/images/desktop.png" width="800" alt="Your Turn inbox with a warm header scene, status tabs, and chats grouped into Needs you, Working, and New results">
@@ -49,18 +49,21 @@ When an agent asks a question, its chat moves into Needs you within a second:
 
 <img src="docs/images/demo.gif" width="800" alt="A working chat moves into Needs you when its question arrives, then opens beside the inbox with the question and an Open in Codex button">
 
-## Start in one command
+## Start
 
 You need Python 3.11+, [`uv`](https://docs.astral.sh/uv/), and at least one of Codex, Claude Code,
 or Cursor.
 
 ```sh
 uvx --from git+https://github.com/martin-gomola/your-turn your-turn install
+uvx --from git+https://github.com/martin-gomola/your-turn your-turn serve
 ```
 
-1. It sets up the handoff for each app it finds (`~/.codex`, `~/.claude`, `~/.cursor`), then starts
-   the inbox on [http://127.0.0.1:8787](http://127.0.0.1:8787).
-2. Restart the apps. From then on, agents end each answer with an Outcome, a Next step, and a
+1. `install` sets up the handoff for each app it finds (`~/.codex`, `~/.claude`, `~/.cursor`) and
+   exits. You need it once.
+2. `serve` starts the inbox on [http://127.0.0.1:8787](http://127.0.0.1:8787) and runs until you
+   press Ctrl+C.
+3. Restart the apps. From then on, agents end each answer with an Outcome, a Next step, and a
    Recap, say which checks they ran, ask their questions with options, and log their decisions.
    That is what makes the recaps exact.
 
@@ -77,15 +80,14 @@ Running it again changes nothing, and it leaves the rest of `CLAUDE.md` and `mcp
 `--harness codex`, `claude`, `cursor` or `all` picks the apps yourself. `your-turn uninstall` takes
 the same options and removes exactly what `install` added.
 
-Your existing chats from all three apps appear right away. Next time, run the same command with
-`serve` in place of `install` to start only the inbox.
+Your existing chats from all three apps appear right away. Next time, run only `serve`.
 
 <details>
 <summary>Only the inbox, or install from a clone</summary>
 
 | You want | Do this |
 | --- | --- |
-| Only the inbox, no handoff | Run the command with `serve` instead of `install`. Recaps fall back to the first paragraph of each answer and a guessed next step. |
+| Only the inbox, no handoff | Run only `serve`. Recaps fall back to the first paragraph of each answer and a guessed next step. |
 | The handoff format without installing anything | Paste [docs/agents-snippet.md](./docs/agents-snippet.md) into the app's global instructions, such as `~/.codex/AGENTS.md`. Decisions are then not logged. |
 | To develop Your Turn | Clone the repo and run `make install`. The plugin then runs from your checkout, and the server starts in the background. If the clone is not at `~/dev/your-turn`, set `YOUR_TURN_REPO` in the environment Codex runs in. |
 
@@ -181,26 +183,19 @@ older chats.
 
 ### Limits
 
-- Recaps are only as good as the agent's final answer. Older chats and agents that skip the handoff
-  lines usually show an unknown next step.
-- Codex and Claude Code do not log approval requests, so a chat blocked on one shows as Working,
-  then Quiet. Claude Code at least names the tool call that has no result yet. Quiet never counts toward Needs you, because a long-running command looks the same.
-  Cursor does report them: a Cursor chat waiting for approval moves into Needs you with
-  **Approve pending action in Cursor**, and leaves it once you approve.
-- Cursor transcripts record commands but not their results, so Cursor checks show no pass or fail,
-  and its timeline times are per turn, not per step. Only the latest turn end is exact.
-- A Cursor chat with no transcript has no timeline, prompt, or checks. Its recap is the list of edited
-  files, and it counts as Working only while Cursor updated it in the last two minutes. A stale
-  approval flag in Cursor keeps the chat in Needs you until Cursor clears it.
-- Claude Code reports whether a command errored, not its exit code, so a check shows pass or fail
-  without the code.
-- Claude Code and Cursor have no chat deep link: Claude Code gets a resume command, and Cursor opens
-  the project folder rather than the chat itself.
-- Cursor uses its global skill when the agent decides it applies; unlike Claude Code's `CLAUDE.md`,
-  Cursor has no global instructions file to make it apply to every chat. Recaps of chats without
-  the handoff fall back to the first paragraph and a guessed next step.
-- The Claude Code MCP server is added only when the `claude` CLI is on your `PATH`; without it,
-  the skill and `CLAUDE.md` block still apply, but decisions are not logged.
+| App | Limit | What you see |
+| --- | --- | --- |
+| All | Recaps come from the agent's final answer | Without handoff lines: the first paragraph and a guessed next step |
+| Codex, Claude Code | Approval requests are not logged | Working, then Quiet. Quiet never counts as Needs you; a long command looks the same |
+| Claude Code | The tool call waiting on approval is known | Quiet names it, such as `Bash: make deploy` |
+| Claude Code | No exit codes, only error or not | Checks show pass or fail without the code |
+| Claude Code | No chat deep link | **Copy resume command** |
+| Claude Code | MCP server needs the `claude` CLI on `PATH` | Without it, decisions are not logged |
+| Cursor | Approvals are logged | Needs you with **Approve pending action in Cursor**; ignored after 24 hours without activity |
+| Cursor | Transcripts record commands, not results | No pass or fail; timeline times per turn |
+| Cursor | Chats without a transcript | Title, folder, branch and edited files only; Working only if updated in the last two minutes |
+| Cursor | No global instructions file | The skill applies when the agent picks it, not in every chat |
+| Cursor | No chat deep link | **Open in Cursor** opens the project folder |
 
 ## Design
 
