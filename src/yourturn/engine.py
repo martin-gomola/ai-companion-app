@@ -51,6 +51,7 @@ from yourturn.harness.codex import (
     TURN_COMPLETED,
     CodexAdapter,
     format_ts,
+    is_background,
     parse_ts,
     record_to_events,
     thread_id_of,
@@ -723,13 +724,13 @@ class CodexCatalog:
         return paths
 
     def is_subagent(self, path: Path) -> bool:
-        """Sub-agent threads get their own rollout file; session_meta on the first line says so."""
+        """Sub-agent threads and `codex exec` runs get their own rollout file; session_meta on the first line says so."""
         if path not in self._subagent:
             try:
                 with path.open("rb") as handle:
                     meta = json.loads(handle.readline())
                 source = meta.get("payload", {}).get("source")
-                self._subagent[path] = isinstance(source, dict) and "subagent" in source
+                self._subagent[path] = is_background(source)
             except (OSError, ValueError, AttributeError):
                 self._subagent[path] = False
         return self._subagent[path]

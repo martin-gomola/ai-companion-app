@@ -73,6 +73,11 @@ def _command(item: dict[str, Any]) -> str:
     return _clip(lines[0] if lines else "", 120)
 
 
+def is_background(source: object) -> bool:
+    """Not a chat the user opened: a sub-agent thread, or a headless `codex exec` run (no chat in Codex)."""
+    return (isinstance(source, dict) and "subagent" in source) or source == "exec"
+
+
 def user_text(text: str) -> str:
     return INJECTED_CONTEXT.sub("", text).strip()
 
@@ -416,7 +421,7 @@ class CodexAdapter:
         return root / "sessions" if (root / "sessions").is_dir() else root
 
     def _head(self, path: Path) -> tuple[bool, str | None]:
-        """(is_subagent, cwd) from the session_meta first line; cached since it never changes."""
+        """(is_background, cwd) from the session_meta first line; cached since it never changes."""
         cached = self._heads.get(path)
         if cached is None:
             subagent, cwd = False, None
@@ -426,7 +431,7 @@ class CodexAdapter:
                 payload = meta.get("payload", {}) if isinstance(meta, dict) else {}
                 if isinstance(payload, dict):
                     source = payload.get("source")
-                    subagent = isinstance(source, dict) and "subagent" in source
+                    subagent = is_background(source)
                     cwd = str(payload["cwd"]) if payload.get("cwd") else None
             except (OSError, ValueError, AttributeError):
                 pass

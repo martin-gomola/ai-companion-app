@@ -21,8 +21,10 @@ def client(codex_home: Path) -> TestClient:
     return TestClient(create_app(codex_home), base_url="http://127.0.0.1")
 
 
-def test_inbox_lists_chats_without_subagents(codex_home: Path) -> None:
+def test_inbox_lists_chats_without_subagents_or_exec_runs(codex_home: Path) -> None:
     write_rollout(codex_home, SUBAGENT, [meta(SUBAGENT, {"subagent": {"thread_spawn": {}}})])
+    # `codex exec` runs are scripted, headless sessions with no chat in Codex.
+    write_rollout(codex_home, OTHER, [meta(OTHER, "exec"), event("2026-10-27T10:00:00Z", {"type": "task_started"})])
     inbox = client(codex_home).get("/api/inbox").json()
 
     assert [(entry["id"], entry["status"], entry["title"]) for entry in inbox] == [(THREAD, "waiting", "Fix login")]
