@@ -84,8 +84,9 @@ def _database(user_dir: Path, rows: list[tuple[str, int, int, dict[str, Any]]]) 
     return path
 
 
-def _header(name: str, cwd: str = CWD, *, pending: bool = False, updated: int = 1793430300000) -> dict[str, Any]:
-    return {"composerId": CID, "name": name, "createdAt": 1793430000000, "lastUpdatedAt": updated,
+def _header(name: str, cwd: str = CWD, *, pending: bool = False, updated: int | None = None) -> dict[str, Any]:
+    # Recent by default: approvals older than a day are ignored.
+    return {"composerId": CID, "name": name, "createdAt": 1793430000000, "lastUpdatedAt": updated or _now_ms(),
             "hasBlockingPendingActions": pending,
             "workspaceIdentifier": {"id": "w1", "uri": {"fsPath": cwd, "path": cwd, "scheme": "file"}}}
 
@@ -288,7 +289,7 @@ def test_pending_approval_needs_you_until_cursor_clears_it(tmp_path: Path) -> No
     waiting = hub.inbox_fingerprint()
 
     # The user approves in Cursor: only its database changes, the transcript does not.
-    _set_header(user_dir, _header("Fix parser", pending=False, updated=1793430400000))
+    _set_header(user_dir, _header("Fix parser", pending=False, updated=_now_ms() + 1000))
     assert hub.inbox_fingerprint() != waiting
     (row,) = hub.inbox_dicts()
     assert (row["status"], row["next_kind"], row["needs_you"], row["attention_key"]) == ("done", "unknown", False, "")
@@ -363,3 +364,20 @@ def test_chat_without_a_transcript_is_served_from_its_header(tmp_path: Path) -> 
     # Each change rebuilds the chat rather than stacking turns.
     detail = hub.detail_dict(f"cursor:{done}")
     assert detail is not None and len(detail["turns"]) == 1
+
+
+def test_approval_untouched_for_a_day_expires(tmp_path: Path) -> None:
+    home, user_dir = tmp_path / "cursor", tmp_path / "User"
+    _write(home, [user("Fix the bug"), assistant(text("All done.")), ENDED])
+    _database(user_dir, [(CID, 0, 0, _header("Fix parser", pending=True, updated=_now_ms(25 * 3600)))])
+    adapter = CursorAdapter(home=home, user_dir=user_dir, max_age_days=14)
+    (ref,) = adapter.discover()
+    folder = TurnFolder(ref)
+    folder.fold_many(adapter.open(ref).read_new())
+    assert (folder.inbox_fields()["status"], folder.inbox_fields()["needs_you"]) == ("done", False)
+    # Still within the day, the same flag needs the user.
+    _set_header(user_dir, _header("Fix parser", pending=True, updated=_now_ms(23 * 3600)))
+    (ref,) = adapter.discover()
+    folder = TurnFolder(ref)
+    folder.fold_many(adapter.open(ref).read_new())
+    assert folder.inbox_fields()["needs_you"] is True

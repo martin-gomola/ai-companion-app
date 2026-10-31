@@ -58,6 +58,8 @@ APPROVAL_TEXT = "Approve pending action in Cursor"
 # A turn with no `turn_ended` and no transcript write for this long was abandoned (window closed, run killed).
 ABANDONED_SECONDS = 3600
 ABANDONED = "no activity for over an hour"
+# Cursor sometimes never clears `hasBlockingPendingActions` on an abandoned chat; after a day it is ignored.
+PENDING_EXPIRY_SECONDS = 24 * 3600
 UTC_OFFSET = re.compile(r"\(UTC([+-])(\d{1,2})(?::(\d\d))?\)")
 
 
@@ -112,6 +114,11 @@ def decode_slug(slug: str) -> str | None:
 
 def _epoch_ms(value: object) -> datetime | None:
     return datetime.fromtimestamp(value / 1000, timezone.utc) if type(value) is int and value > 0 else None
+
+
+def _recent(moment: datetime | None, seconds: float) -> bool:
+    """Within the last `seconds`; an unknown time is never recent."""
+    return moment is not None and time.time() - moment.timestamp() < seconds
 
 
 def _edited_paths(name: str, arguments: object) -> tuple[str, ...]:
@@ -381,12 +388,13 @@ class CursorAdapter:
                 data = {}
             workspace = data.get("workspaceIdentifier") if isinstance(data, dict) else None
             uri = workspace.get("uri") if isinstance(workspace, dict) else None
+            updated = _epoch_ms(data.get("lastUpdatedAt") if isinstance(data, dict) else None)
             headers[str(composer_id)] = {
                 "title": str(data.get("name") or "") if isinstance(data, dict) else "",
                 "cwd": uri.get("fsPath") if isinstance(uri, dict) and isinstance(uri.get("fsPath"), str) else None,
                 "created": _epoch_ms(data.get("createdAt") if isinstance(data, dict) else None),
-                "updated": _epoch_ms(data.get("lastUpdatedAt") if isinstance(data, dict) else None),
-                "pending": bool(data.get("hasBlockingPendingActions")) if isinstance(data, dict) else False,
+                "updated": updated,
+                "pending": isinstance(data, dict) and bool(data.get("hasBlockingPendingActions")) and _recent(updated, PENDING_EXPIRY_SECONDS),
                 "subtitle": clip(data["subtitle"], 200) if isinstance(data, dict) and isinstance(data.get("subtitle"), str) else "",
                 "branch": _branch(data) if isinstance(data, dict) else None,
                 "archived": bool(archived),
