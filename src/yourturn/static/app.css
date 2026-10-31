@@ -406,7 +406,7 @@ a.brand:hover { background: var(--color-surface-pressed); }
 }
 @keyframes hero-collapse { to { opacity: 0; } }
 .hero-title h1 { font-size: var(--text-display); line-height: 1.02; letter-spacing: -.025em; font-weight: var(--weight-bold); white-space: nowrap; hyphens: none; }
-.segments { position: absolute; display: flex; align-items: stretch; justify-content: flex-start; gap: var(--space-8); left: var(--page-inset); right: auto; width: max-content; max-width: calc(100% - var(--page-inset) - var(--page-inset-end)); bottom: 4px; top: auto; height: 56px; padding: 0 var(--space-2); border-radius: 12px; box-shadow: 0 2px 8px #0001; background: var(--color-surface); border: 1px solid var(--glass-edge); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+.segments { position: absolute; display: flex; align-items: stretch; justify-content: flex-start; gap: var(--space-8); left: var(--page-inset); right: auto; width: max-content; max-width: calc(100% - var(--page-inset) - var(--page-inset-end)); bottom: var(--space-3); top: auto; height: 56px; padding: 0 var(--space-2); border-radius: 12px; box-shadow: 0 2px 8px #0001; background: var(--color-surface); border: 1px solid var(--glass-edge); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
 .segments::-webkit-scrollbar { display: none; }
 /* Scrollbars stay out of sight until they are useful: thin, no track, and inner panes only show
    the thumb while pointed at or focused. The page keeps a faint thumb so its length stays visible. */
@@ -615,7 +615,7 @@ body[data-panel="open"] .panel-head { position: sticky; top: 0; z-index: 2; padd
   .row { grid-template-columns: 40px minmax(0, 1fr) 92px 60px 16px; gap: var(--space-3); padding-inline: 0; }
 }
 @media (max-width: 599px) {
-  :root { --hero-height: 124px; --hero-pinned: 64px; --text-display: 40px; --text-row: 17px; --text-preview: 16px; }
+  :root { --hero-height: 124px; --hero-pinned: 76px; --text-display: 40px; --text-row: 17px; --text-preview: 16px; }
   .hero-art { display: none; }
   .hero-title { right: var(--page-inset); }
   .hero-title h1 { max-width: calc(100% - 164px); font-size: clamp(24px, 7vw, 40px); white-space: normal; }

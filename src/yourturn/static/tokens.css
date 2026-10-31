@@ -86,7 +86,7 @@
   --inset-indicator: var(--space-3);
   --icon-bleed: calc((var(--size-control) - var(--size-icon)) / 2);
   --hero-height: 284px;
-  --hero-pinned: 72px;
+  --hero-pinned: 80px;
   --content-inset: var(--space-6);
   --header-art: url('/assets/header-light.webp');
   --glass-fill: color-mix(in srgb, var(--color-bg) 64%, transparent);
