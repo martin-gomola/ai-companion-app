@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from yourturn.app import create_app
 from yourturn.engine import SessionHub, TurnFolder
-from yourturn.harness.codex import DECISION_TOOL, CodexAdapter, record_events
+from yourturn.harness.codex import DECISION_TOOL, CodexAdapter, record_to_events
 from yourturn.heuristics import QUIET_SECONDS
 from yourturn.model import SessionKey, SessionRef
 from yourturn.rollout import Sessions
@@ -72,7 +72,7 @@ def _write(home: Path, sid: str, records: list[dict[str, Any]]) -> Path:
 
 
 def _events(records: list[dict[str, Any]]) -> list[Any]:
-    return [event for record in records for event in record_events(record)]
+    return [event for record in records for event in record_to_events(record)]
 
 
 def _ref(sid: str = SID) -> SessionRef:

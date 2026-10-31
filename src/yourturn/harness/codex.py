@@ -19,9 +19,11 @@ from typing import Any
 from yourturn.harness.base import (
     AgentMessage,
     CommandRun,
+    ContextCompacted,
     Event,
     FilesEdited,
     Meta,
+    Reasoning,
     ToolCall,
     TurnEnded,
     TurnStarted,
@@ -35,7 +37,7 @@ from yourturn.model import Capabilities, Handoff, Harness, SessionRef
 
 ROLLOUT_GLOB = "*/*/*/rollout-*.jsonl"
 DECISION_TOOL = "log_decision"
-# Synthetic ToolCall name for a question the agent asked the user (Codex AgentMessage `questions`).
+# Synthetic ToolCall name for a question the agent asked the user (Codex carries them on AgentMessage).
 ASK_USER_TOOL = "ask_user"
 # Synthetic ToolCall name for a sub-agent being started.
 SUBAGENT_TOOL = "subagent"
@@ -85,21 +87,32 @@ def codex_home() -> Path:
     return Path(raw).expanduser() if raw else Path.home() / ".codex"
 
 
+class _Stamp(datetime):
+    """A parsed rollout timestamp that keeps its source text, so `format_ts` echoes it unchanged."""
+
+    raw = ""
+
+
 def parse_ts(value: object) -> datetime | None:
     """Parse a rollout ISO timestamp (`...Z`) into an aware UTC datetime; None when absent/bad."""
     if not isinstance(value, str) or not value:
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = _Stamp.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    parsed.raw = value
+    return parsed
 
 
 def format_ts(value: datetime | None) -> str:
     """Inverse of `parse_ts` for `Step.at` / `Check.at` strings ("" when unknown)."""
     if value is None:
         return ""
+    if isinstance(value, _Stamp) and value.raw:
+        return value.raw
     return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
@@ -107,11 +120,18 @@ def _int_or_none(value: object) -> int | None:
     return value if type(value) is int else None
 
 
+def _str_or_none(value: object, limit: int = 120) -> str | None:
+    return _clip(value, limit) if isinstance(value, str) else None
+
+
 # --- Record -> event mapping ---------------------------------------------------------------------
 
 
-def record_events(record: dict[str, Any]) -> list[Event]:
-    """Map one rollout record to zero or more normalized events (pure; mirrors RolloutParser.feed)."""
+def record_to_events(record: dict[str, Any]) -> list[Event]:
+    """Map one rollout record to normalized events (pure).
+
+    Each understood record yields exactly one event, so `TurnFolder.version` counts records.
+    """
     payload = record.get("payload")
     if not isinstance(payload, dict):
         return []
@@ -119,44 +139,52 @@ def record_events(record: dict[str, Any]) -> list[Event]:
     kind = record.get("type")
     if kind == "session_meta":
         git = payload.get("git") if isinstance(payload.get("git"), dict) else {}
+        source = payload.get("source")
         return [
             Meta(
                 ts=parse_ts(payload.get("timestamp")) or ts,
                 session_id=str(payload["id"]) if payload.get("id") else None,
                 cwd=str(payload.get("cwd", "")),
                 harness=Harness.CODEX.value,
-                originator=_clip(payload["originator"], 120) if isinstance(payload.get("originator"), str) else None,
-                cli_version=_clip(payload["cli_version"], 120) if isinstance(payload.get("cli_version"), str) else None,
-                git_branch=_clip(git["branch"], 160) if isinstance(git.get("branch"), str) else None,
+                model_provider=_str_or_none(payload.get("model_provider")),
+                originator=_str_or_none(payload.get("originator")),
+                cli_version=_str_or_none(payload.get("cli_version")),
+                git_branch=_str_or_none(git.get("branch"), 160),
                 git_commit=git["commit_hash"] if isinstance(git.get("commit_hash"), str) else None,
                 git_repo_url=git["repository_url"] if isinstance(git.get("repository_url"), str) else None,
+                subagent=isinstance(source, dict) and "subagent" in source,
+                parent_id=str(payload.get("parent_thread_id") or ""),
             )
         ]
     if kind == "turn_context":
-        model = payload.get("model")
-        return [Meta(ts=ts, model=_clip(model, 120) if isinstance(model, str) else None)]
+        # Each turn restates its settings: a missing value clears the previous one.
+        return [
+            Meta(
+                ts=ts,
+                model=_str_or_none(payload.get("model")) or "",
+                reasoning_effort=_str_or_none(payload.get("effort"), 80) or "",
+            )
+        ]
     if kind != "event_msg":
         # TODO: legacy rollouts (`response_item` function_call/local_shell_call, event_msg
         # user_message/agent_message/exec_command_end/patch_apply_end) are not mapped; rollout.py
         # never parsed them either, and mapping both shapes would double-count newer files.
         return []
     event = payload.get("type")
+    turn_id = str(payload["turn_id"]) if payload.get("turn_id") else None
     if event == "task_started":
-        turn_id = payload.get("turn_id")
-        return [TurnStarted(ts=ts, turn_id=str(turn_id) if turn_id else None)]
+        return [TurnStarted(ts=ts, turn_id=turn_id)]
     if event == "task_complete":
-        turn_id = payload.get("turn_id")
-        return [TurnEnded(ts=ts, turn_id=str(turn_id) if turn_id else None, reason=TURN_COMPLETED)]
+        duration = payload.get("duration_ms")
+        duration_ms = duration if isinstance(duration, (int, float)) else None
+        return [TurnEnded(ts=ts, turn_id=turn_id, reason=TURN_COMPLETED, duration_ms=duration_ms)]
     if event == "turn_aborted":
-        turn_id = payload.get("turn_id")
         # Any reason other than TURN_COMPLETED (including "") means the turn was stopped.
-        reason = str(payload.get("reason", ""))
-        return [TurnEnded(ts=ts, turn_id=str(turn_id) if turn_id else None, reason=reason)]
+        return [TurnEnded(ts=ts, turn_id=turn_id, reason=str(payload.get("reason", "")))]
     if event == "token_count":
-        info = payload.get("info")
-        total = _token_counts(info.get("total_token_usage")) if isinstance(info, dict) else {}
-        if not total:
-            return []
+        info = payload.get("info") if isinstance(payload.get("info"), dict) else {}
+        total = _token_counts(info.get("total_token_usage"))
+        window = info.get("model_context_window")
         return [
             Usage(
                 ts=ts,
@@ -164,6 +192,9 @@ def record_events(record: dict[str, Any]) -> list[Event]:
                 output_tokens=total.get("output_tokens", 0),
                 cached_input_tokens=total.get("cached_input_tokens", 0),
                 total_tokens=total.get("total_tokens", 0),
+                total=total,
+                last=_token_counts(info.get("last_token_usage")),
+                window=window if type(window) is int and window >= 0 else None,
             )
         ]
     if event == "item_completed" and isinstance(payload.get("item"), dict):
@@ -175,8 +206,6 @@ def _item_events(ts: datetime | None, item: dict[str, Any]) -> list[Event]:
     kind = item.get("type")
     if kind == "UserMessage":
         text = user_text(_texts(item.get("content")))
-        if not text:
-            return []
         match = QUESTION_REPLY.search(text)
         if match is None:
             return [UserMessage(ts=ts, text=text)]
@@ -184,17 +213,21 @@ def _item_events(ts: datetime | None, item: dict[str, Any]) -> list[Event]:
             replies = json.loads(match.group(1))
         except json.JSONDecodeError:
             replies = []
-        return [
-            UserMessage(ts=ts, text=_clip(str(reply.get("answer", "")), 120))
+        answers = tuple(
+            (_clip(str(reply.get("question", ""))), _clip(str(reply.get("answer", "")), 120))
             for reply in (replies if isinstance(replies, list) else [])
             if isinstance(reply, dict)
-        ]
+        )
+        # A reply block without readable answers is not a prompt either.
+        return [UserMessage(ts=ts, text=text if answers else "", answers=answers)]
     if kind == "AgentMessage":
-        events: list[Event] = [AgentMessage(ts=ts, text=_texts(item.get("content")))]
-        for question in item.get("questions") or []:
-            if isinstance(question, dict):
-                events.append(ToolCall(ts=ts, name=ASK_USER_TOOL, arguments=json.dumps(question, ensure_ascii=False)))
-        return events
+        phase = item.get("phase")
+        questions = tuple(question for question in item.get("questions") or [] if isinstance(question, dict))
+        return [AgentMessage(ts=ts, text=_texts(item.get("content")), phase=str(phase) if phase else None, questions=questions)]
+    if kind == "Reasoning":
+        return [Reasoning(ts=ts, text=" ".join(item.get("summary_text") or []))]
+    if kind == "ContextCompaction":
+        return [ContextCompacted(ts=ts)]
     if kind == "CommandExecution":
         output = item.get("aggregated_output")
         return [
@@ -221,7 +254,6 @@ def _item_events(ts: datetime | None, item: dict[str, Any]) -> list[Event]:
         return [ToolCall(ts=ts, name=f"{item.get('server')} · {item.get('tool')}", arguments=args_text, ok=not failed)]
     if kind == "SubAgentActivity" and item.get("kind") == "started":
         return [ToolCall(ts=ts, name=SUBAGENT_TOOL, arguments=str(item.get("agent_path") or item.get("agent_thread_id")), ok=True)]
-    # Reasoning summaries and context compaction have no normalized event.
     return []
 
 
@@ -271,25 +303,26 @@ class CodexCursor:
         self._head = []
 
     def skip_to_tail(self, max_bytes: int) -> None:
-        """Before the first read, start `max_bytes` from the end (keeping the session_meta header).
-
-        The first partial line after the seek point is discarded, like `RolloutTail(start=...)`.
-        """
-        if self._offset != 0:
-            return
+        """Before the first read, start `max_bytes` from the end (keeping the session_meta header)."""
         try:
             size = self._path.stat().st_size
         except OSError:
             return
-        start = max(0, size - max_bytes)
-        if start == 0:
+        self.seek(max(0, size - max_bytes))
+
+    def seek(self, start: int) -> None:
+        """Before the first read, start at byte `start` (keeping the session_meta header).
+
+        The first partial line after the seek point is discarded.
+        """
+        if self._offset != 0 or start <= 0:
             return
         self._offset, self._skip_partial = start, True
         try:
             with self._path.open("rb") as handle:
                 metadata = json.loads(handle.readline())
             if isinstance(metadata, dict) and metadata.get("type") == "session_meta":
-                self._head = record_events(metadata)
+                self._head = record_to_events(metadata)
         except (OSError, ValueError, TypeError, AttributeError):
             self._head = []
 
@@ -321,7 +354,7 @@ class CodexCursor:
                         continue
                     # One unexpected record must not stop the rest of the file from being read.
                     try:
-                        events.extend(record_events(record))
+                        events.extend(record_to_events(record))
                     except (TypeError, AttributeError, ValueError):
                         continue
         except OSError:

@@ -1,13 +1,11 @@
 """Session engine: fold a session's history into one state, and serve it as typed views or API dicts.
 
-`TurnFolder` is the single state machine (no I/O). It has two entry points sharing the same
-turn/check/decision/step rules: `fold(event)` for normalized harness `Event`s, and `feed(record)`
-for raw Codex rollout records. Raw records stay the full-fidelity Codex path because normalized
-events still drop details the API exposes (final_answer phase, turn duration_ms, reasoning
-summaries, context compaction, last_token_usage / context window, question/answer pairing,
-model provider / effort, sub-agent parentage).
+`TurnFolder` is the single state machine (no I/O): every state change goes through
+`fold(event)` on normalized harness `Event`s. `feed(record)` only maps a raw Codex rollout record
+through `record_to_events` and folds the result.
 
-`SessionHub` owns every per-session state the app serves: the adapter-driven `refresh()` view and,
+`SessionHub` owns every per-session state the app serves, reading every source through its
+adapter's cursor (`adapter.open(ref).read_new()` -> `fold`): the `refresh()` view and,
 when built with a `CodexCatalog`, the inbox rows, the per-thread detail state and the stream
 fingerprint (`inbox_dicts`, `detail_dict`, `inbox_fingerprint`). No threads of its own: the
 caller drives reads, and one lock serializes request threads and the event stream.
@@ -31,11 +29,13 @@ from yourturn.config import DEFAULT_HISTORY_DAYS
 from yourturn.harness.base import (
     AgentMessage,
     CommandRun,
+    ContextCompacted,
     Event,
     EventCursor,
     FilesEdited,
     HarnessAdapter,
     Meta,
+    Reasoning,
     ToolCall,
     TurnEnded,
     TurnStarted,
@@ -45,19 +45,14 @@ from yourturn.harness.base import (
 from yourturn.harness.codex import (
     ASK_USER_TOOL,
     DECISION_TOOL,
-    QUESTION_REPLY,
     ROLLOUT_GLOB,
     SUBAGENT_TOOL,
     TURN_COMPLETED,
-    WANTED,
     CodexAdapter,
-    _command as codex_command,
-    _texts,
-    _token_counts,
     format_ts,
     parse_ts,
+    record_to_events,
     thread_id_of,
-    user_text,
 )
 from yourturn.heuristics import (
     check_key,
@@ -287,23 +282,17 @@ class TurnFolder:
         elif isinstance(event, TurnEnded):
             self._turn_ended(at, event)
         elif isinstance(event, Usage):
-            self.usage = UsageTotals(
-                input_tokens=event.input_tokens,
-                output_tokens=event.output_tokens,
-                cached_input_tokens=event.cached_input_tokens,
-                total_tokens=event.total_tokens,
-            )
-            self.token_usage = {
-                "input_tokens": event.input_tokens,
-                "cached_input_tokens": event.cached_input_tokens,
-                "output_tokens": event.output_tokens,
-                "total_tokens": event.total_tokens,
-            }
-            self.token_usage_at = at
+            self._usage(at, event)
         elif isinstance(event, UserMessage):
-            self._user(at, event.text)
+            self._user(at, event)
         elif isinstance(event, AgentMessage):
-            self._agent(at, event.text)
+            self._agent(at, event)
+        elif isinstance(event, Reasoning):
+            self._turn(at)
+            if event.text:
+                self._step(at, "thinking", event.text)
+        elif isinstance(event, ContextCompacted):
+            self._step(at, "turn", "Context compacted")
         elif isinstance(event, CommandRun):
             self._run(at, self._turn(at), event.command, event.exit_code)
         elif isinstance(event, FilesEdited):
@@ -320,6 +309,14 @@ class TurnFolder:
             self.git_branch = event.git_branch
         if event.cli_version is not None:
             self.cli_version = event.cli_version
+        if event.model_provider is not None:
+            self.model_provider = event.model_provider
+        if event.reasoning_effort is not None:
+            self.reasoning_effort = event.reasoning_effort
+        if event.subagent is not None:
+            self.subagent = event.subagent
+        if event.parent_id is not None:
+            self.parent_id = event.parent_id
         # Only the session header carries cwd; turn_context Meta events carry just the model.
         if event.cwd is not None and event.ts is not None:
             self._started_ts, self.started_at = event.ts, format_ts(event.ts)
@@ -330,12 +327,15 @@ class TurnFolder:
             return
         turn = self._turn(at)
         self._final_answer(turn)
-        started = parse_ts(turn.started_at)
-        seconds = round((event.ts - started).total_seconds()) if started and event.ts else 0
+        if event.duration_ms is not None:
+            seconds = round(event.duration_ms / 1000)
+        else:
+            started = parse_ts(turn.started_at)
+            seconds = round((event.ts - started).total_seconds()) if started and event.ts else 0
         self._close_turn(at, None, f"{seconds}s" if seconds > 0 else "")
 
     def _final_answer(self, turn: Turn) -> None:
-        """Normalized events carry no "final answer" flag: the turn's last agent message is it."""
+        """Without message phases, the turn's last plain agent message is its final answer."""
         if self._last_message is None or self._last_message[0] != turn.index:
             return
         _, at, text, step = self._last_message
@@ -343,17 +343,64 @@ class TurnFolder:
         step.kind, step.title = "answer", clip(turn.outcome or text)
         self._last_message = None
 
-    def _agent(self, at: str, text: str) -> None:
-        turn = self._turn(at)
-        step = self._step(at, "message", text)
-        self._last_message = (turn.index, at, text, step)
+    def _agent(self, at: str, event: AgentMessage) -> None:
+        turn, text = self._turn(at), event.text
         if text:
             self._last_agent_text = text
+        if event.phase == "final_answer":
+            self._apply_answer(turn, at, text)
+            self._step(at, "answer", turn.outcome or text)
+            self._last_message = None
+        else:
+            step = self._step(at, "message", text)
+            # A message that asks questions waits for answers; it is not the turn's answer.
+            if event.phase is None and not event.questions:
+                self._last_message = (turn.index, at, text, step)
+        for question in event.questions:
+            self._ask(at, turn, question)
 
-    def _user(self, at: str, text: str) -> None:
-        if not text:
-            return
-        self._prompt(at, self._turn(at), text)
+    def _user(self, at: str, event: UserMessage) -> None:
+        turn = self._turn(at)
+        if event.answers:
+            self._answers(at, turn, event.answers)
+        elif event.text:
+            self._prompt(at, turn, event.text)
+
+    def _answers(self, at: str, turn: Turn, answers: tuple[tuple[str, str], ...]) -> None:
+        pending = self._pending()
+        for question, answer in answers:
+            decision = next((d for d in pending if d.question == question), pending[0] if pending else None)
+            if decision is not None:
+                decision.chosen = answer
+                pending.remove(decision)
+            turn.prompt = turn.prompt or f"Answered: {answer}"
+            self._step(at, "user", f"You answered: {answer}", question)
+
+    def _usage(self, at: str, event: Usage) -> None:
+        total = (
+            dict(event.total)
+            if event.total is not None
+            else {
+                "input_tokens": event.input_tokens,
+                "cached_input_tokens": event.cached_input_tokens,
+                "output_tokens": event.output_tokens,
+                "total_tokens": event.total_tokens,
+            }
+        )
+        if total:
+            self.token_usage, self.token_usage_at = total, at
+            self.usage = UsageTotals(
+                input_tokens=total.get("input_tokens", 0),
+                output_tokens=total.get("output_tokens", 0),
+                cached_input_tokens=total.get("cached_input_tokens", 0),
+                total_tokens=total.get("total_tokens", 0),
+            )
+        if event.last:
+            self.last_token_usage = dict(event.last)
+            if "total_tokens" in event.last:
+                self.context_used = event.last["total_tokens"]
+        if event.window is not None:
+            self.context_window = event.window
 
     def _tool(self, at: str, event: ToolCall) -> None:
         turn = self._turn(at)
@@ -371,130 +418,7 @@ class TurnFolder:
 
     def feed(self, record: dict[str, Any]) -> None:
         """Fold one raw Codex rollout record; feed records in file order."""
-        payload = record.get("payload")
-        if not isinstance(payload, dict):
-            return
-        self.version += 1
-        at = str(record.get("timestamp", ""))
-        if at:
-            self.updated_at, self._updated_ts = at, _parse(at)
-        kind = record.get("type")
-        if kind == "session_meta":
-            self._record_meta(at, payload)
-        elif kind == "turn_context":
-            self.model = clip(payload["model"], 120) if isinstance(payload.get("model"), str) else ""
-            self.reasoning_effort = clip(payload["effort"], 80) if isinstance(payload.get("effort"), str) else ""
-        elif kind == "event_msg":
-            self._record_event(at, payload)
-
-    def _record_meta(self, at: str, payload: dict[str, Any]) -> None:
-        self.cwd = str(payload.get("cwd", ""))
-        for name in ("model_provider", "cli_version"):
-            if isinstance(payload.get(name), str):
-                setattr(self, name, clip(payload[name], 120))
-        git = payload.get("git")
-        if isinstance(git, dict) and isinstance(git.get("branch"), str):
-            self.git_branch = clip(git["branch"], 160)
-        self.started_at = str(payload.get("timestamp", at))
-        self._started_ts = _parse(self.started_at)
-        source = payload.get("source")
-        self.subagent = isinstance(source, dict) and "subagent" in source
-        self.parent_id = str(payload.get("parent_thread_id") or "")
-
-    def _record_event(self, at: str, payload: dict[str, Any]) -> None:
-        event = payload.get("type")
-        if event == "task_started":
-            self._turn_started(at)
-        elif event == "turn_aborted":
-            self._close_turn(at, str(payload.get("reason", "")), "")
-        elif event == "task_complete":
-            duration = payload.get("duration_ms")
-            seconds = round(duration / 1000) if isinstance(duration, (int, float)) else 0
-            self._close_turn(at, None, f"{seconds}s" if seconds else "")
-        elif event == "token_count":
-            info = payload.get("info")
-            if not isinstance(info, dict):
-                return
-            total = _token_counts(info.get("total_token_usage"))
-            last = _token_counts(info.get("last_token_usage"))
-            if total:
-                self.token_usage, self.token_usage_at = total, at
-                self.usage = UsageTotals(
-                    input_tokens=total.get("input_tokens", 0),
-                    output_tokens=total.get("output_tokens", 0),
-                    cached_input_tokens=total.get("cached_input_tokens", 0),
-                    total_tokens=total.get("total_tokens", 0),
-                )
-            if last:
-                self.last_token_usage = last
-                if "total_tokens" in last:
-                    self.context_used = last["total_tokens"]
-            window = info.get("model_context_window")
-            if type(window) is int and window >= 0:
-                self.context_window = window
-        elif event == "item_completed" and isinstance(payload.get("item"), dict):
-            self._record_item(at, payload["item"])
-
-    def _record_item(self, at: str, item: dict[str, Any]) -> None:
-        turn = self._turn(at)
-        kind = item.get("type")
-        if kind == "UserMessage":
-            self._record_user(at, turn, _texts(item.get("content")))
-        elif kind == "AgentMessage":
-            text = _texts(item.get("content"))
-            if text:
-                self._last_agent_text = text
-            if item.get("phase") == "final_answer":
-                self._apply_answer(turn, at, text)
-                self._step(at, "answer", turn.outcome or text)
-            else:
-                self._step(at, "message", text)
-            for question in item.get("questions") or []:
-                if isinstance(question, dict):
-                    self._ask(at, turn, question)
-        elif kind == "Reasoning":
-            summary = " ".join(item.get("summary_text") or [])
-            if summary:
-                self._step(at, "thinking", summary)
-        elif kind == "CommandExecution":
-            self._run(at, turn, codex_command(item), item.get("exit_code"))
-        elif kind == "FileChange":
-            changes = item.get("changes")
-            self._edit(at, turn, list(changes) if isinstance(changes, dict) else [], _parse(at), False)
-        elif kind == "McpToolCall":
-            if item.get("tool") == DECISION_TOOL:
-                self._decide(at, turn, item.get("arguments") or {})
-            else:
-                failed = item.get("status") not in ("completed", None)
-                self._step(at, "tool", f"{item.get('server')} · {item.get('tool')}", status="failed" if failed else "done")
-        elif kind == "SubAgentActivity" and item.get("kind") == "started":
-            self._step(at, "agent", f"Sub-agent started: {item.get('agent_path') or item.get('agent_thread_id')}")
-        elif kind == "ContextCompaction":
-            self._step(at, "turn", "Context compacted")
-
-    def _record_user(self, at: str, turn: Turn, raw: str) -> None:
-        text = user_text(raw)
-        if not text:
-            return
-        match = QUESTION_REPLY.search(text)
-        if match is None:
-            self._prompt(at, turn, text)
-            return
-        pending = self._pending()
-        try:
-            replies = json.loads(match.group(1))
-        except json.JSONDecodeError:
-            replies = []
-        for reply in replies if isinstance(replies, list) else []:
-            if not isinstance(reply, dict):
-                continue
-            question, answer = clip(str(reply.get("question", ""))), clip(str(reply.get("answer", "")), 120)
-            decision = next((d for d in pending if d.question == question), pending[0] if pending else None)
-            if decision is not None:
-                decision.chosen = answer
-                pending.remove(decision)
-            turn.prompt = turn.prompt or f"Answered: {answer}"
-            self._step(at, "user", f"You answered: {answer}", question)
+        self.fold_many(record_to_events(record))
 
     # -- API dicts (the JSON contract app.js reads) -------------------------------------------------
 
@@ -673,56 +597,37 @@ class RolloutParser:
 
 
 class RolloutTail:
-    """Incrementally follows one rollout file so each read only parses newly appended lines."""
+    """Follows one rollout file through `CodexAdapter.open()`; each read folds only appended records."""
 
-    def __init__(self, path: Path, thread_id: str, start: int = 0, ref: SessionRef | None = None) -> None:
-        self.path = path
-        self.ref = ref
-        self.parser = RolloutParser(thread_id, ref)
-        self.offset = start
-        self._skip_partial = start > 0
-        if start > 0:
-            try:
-                with path.open("rb") as handle:
-                    metadata = json.loads(handle.readline())
-                if isinstance(metadata, dict) and metadata.get("type") == "session_meta":
-                    self.parser.feed(metadata)
-            except (OSError, ValueError):
-                pass
+    def __init__(
+        self,
+        path: Path,
+        thread_id: str,
+        start: int = 0,
+        ref: SessionRef | None = None,
+        adapter: CodexAdapter | None = None,
+    ) -> None:
+        self.ref = ref if ref is not None and ref.path == path else SessionRef(
+            harness=Harness.CODEX.value, session_id=thread_id, path=path, cwd=ref.cwd if ref else None
+        )
+        self.cursor = (adapter or CodexAdapter()).open(self.ref)
+        self.cursor.seek(start)
+        self.state = TurnFolder(self.ref)
+        self._truncations = self.cursor.truncations
+
+    @property
+    def path(self) -> Path:
+        return self.cursor.path
 
     def read(self) -> TurnFolder:
-        size = self.path.stat().st_size
-        if size < self.offset:
-            # Rewritten shorter: rebuild state from the start.
-            self.parser = RolloutParser(self.parser.state.id, self.ref)
-            self.offset, self._skip_partial = 0, False
-        if size <= self.offset:
-            return self.parser.state
-        # Line by line: rollouts can be hundreds of megabytes and must not be loaded whole.
-        with self.path.open("rb") as handle:
-            handle.seek(self.offset)
-            while self.offset < size:
-                raw = handle.readline()
-                if not raw.endswith(b"\n"):
-                    break
-                self.offset += len(raw)
-                if self._skip_partial:
-                    self._skip_partial = False
-                    continue
-                if not any(marker in raw for marker in WANTED):
-                    continue
-                try:
-                    record = json.loads(raw.decode("utf-8", errors="replace"))
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(record, dict):
-                    continue
-                # One unexpected record must not stop the rest of the file from being read.
-                try:
-                    self.parser.feed(record)
-                except (TypeError, AttributeError, ValueError):
-                    continue
-        return self.parser.state
+        self.path.stat()  # A vanished file raises OSError, which callers treat as archived.
+        events = self.cursor.read_new()
+        if self.cursor.truncations != self._truncations:
+            # Rewritten shorter: the cursor replayed from the start, so rebuild state.
+            self._truncations = self.cursor.truncations
+            self.state = TurnFolder(self.ref)
+        self.state.fold_many(events)
+        return self.state
 
 
 class CodexCatalog:
@@ -839,21 +744,13 @@ class CodexCatalog:
 
 
 class _Tracked:
-    __slots__ = ("adapter", "ref", "cursor", "folder", "truncations", "tail")
+    __slots__ = ("adapter", "ref", "cursor", "folder", "truncations")
 
-    def __init__(
-        self,
-        adapter: HarnessAdapter,
-        ref: SessionRef,
-        cursor: EventCursor | None,
-        folder: TurnFolder,
-        tail: RolloutTail | None = None,
-    ) -> None:
+    def __init__(self, adapter: HarnessAdapter, ref: SessionRef, cursor: EventCursor, folder: TurnFolder) -> None:
         self.adapter = adapter
         self.ref = ref
         self.cursor = cursor
         self.folder = folder
-        self.tail = tail
         self.truncations = int(getattr(cursor, "truncations", 0))
 
 
@@ -866,9 +763,8 @@ def _keyed(row: dict[str, Any], native_id: str) -> dict[str, Any]:
 class SessionHub:
     """Owns every session state the app serves.
 
-    Adapter mode (`refresh` / `snapshots` / `detail`): one reader + `TurnFolder` per discovered
-    session, reading only newly appended bytes. Codex sessions are read as raw records
-    (`RolloutTail`) for full fidelity; other adapters fold normalized events.
+    Adapter mode (`refresh` / `snapshots` / `detail`): one adapter cursor + `TurnFolder` per
+    discovered session, folding only newly appended events.
 
     Catalog mode (`catalog=` or `for_codex_home`): the API dicts. Inbox rows come from a tail read
     (last `tail_bytes`) cached per file signature; thread detail comes from a full incremental read
@@ -934,15 +830,6 @@ class SessionHub:
         self._scanned_at = now
 
     def _track(self, adapter: HarnessAdapter, ref: SessionRef) -> _Tracked:
-        if isinstance(adapter, CodexAdapter) and ref.path is not None:
-            start = 0
-            if self.tail_bytes is not None:
-                try:
-                    start = max(0, ref.path.stat().st_size - self.tail_bytes)
-                except OSError:
-                    start = 0
-            tail = RolloutTail(ref.path, ref.session_id, start=start, ref=ref)
-            return _Tracked(adapter, ref, None, tail.parser.state, tail=tail)
         cursor = adapter.open(ref)
         skip = getattr(cursor, "skip_to_tail", None)
         if self.tail_bytes is not None and callable(skip):
@@ -950,21 +837,14 @@ class SessionHub:
         return _Tracked(adapter, ref, cursor, TurnFolder(ref))
 
     def _pump(self, tracked: _Tracked) -> None:
-        if tracked.tail is not None:
-            try:
-                # A shrunk file is replayed from the start inside the tail, with a fresh folder.
-                tracked.folder = tracked.tail.read()
-            except OSError:
-                pass
-        elif tracked.cursor is not None:
-            events = tracked.cursor.read_new()
-            truncations = int(getattr(tracked.cursor, "truncations", 0))
-            if truncations != tracked.truncations:
-                # The file shrank and the cursor replayed from the start: rebuild state.
-                tracked.truncations = truncations
-                tracked.folder = TurnFolder(tracked.ref)
-            if events:
-                tracked.folder.fold_many(events)
+        events = tracked.cursor.read_new()
+        truncations = int(getattr(tracked.cursor, "truncations", 0))
+        if truncations != tracked.truncations:
+            # The file shrank and the cursor replayed from the start: rebuild state.
+            tracked.truncations = truncations
+            tracked.folder = TurnFolder(tracked.ref)
+        if events:
+            tracked.folder.fold_many(events)
         title_of = getattr(tracked.adapter, "title", None)
         if callable(title_of):
             title = title_of(tracked.ref)
@@ -1006,7 +886,7 @@ class SessionHub:
                 if folder is None:
                     return None
                 path = self._details[key.native_id].path
-                adapter = next((a for a in self.adapters if isinstance(a, CodexAdapter)), None)
+                adapter = self._codex()
                 ref = SessionRef(harness=Harness.CODEX.value, session_id=key.native_id, path=path, cwd=folder.cwd or None)
                 return folder.detail(
                     self._path_mtime(path),
@@ -1024,6 +904,9 @@ class SessionHub:
         )
 
     # -- catalog mode: the API dicts ---------------------------------------------------------------
+
+    def _codex(self) -> CodexAdapter | None:
+        return next((a for a in self.adapters if isinstance(a, CodexAdapter)), None)
 
     def _require_catalog(self) -> CodexCatalog:
         if self.catalog is None:
@@ -1059,7 +942,7 @@ class SessionHub:
             # A changed file is re-read from its tail with a fresh folder, as the inbox always has.
             start = max(0, sig[0] - limit) if limit is not None else 0
             try:
-                folder = RolloutTail(path, thread_id_of(path), start=start).read()
+                folder = RolloutTail(path, thread_id_of(path), start=start, adapter=self._codex()).read()
             except OSError:
                 return None
             cached = self._inbox[path] = (sig, folder.inbox_fields(sig[1]))
@@ -1099,7 +982,7 @@ class SessionHub:
             return None
         tail = self._details.get(thread_id)
         if tail is None or tail.path != path:
-            tail = self._details[thread_id] = RolloutTail(path, thread_id)
+            tail = self._details[thread_id] = RolloutTail(path, thread_id, adapter=self._codex())
         self._details.move_to_end(thread_id)
         while len(self._details) > self.max_details:
             self._details.popitem(last=False)

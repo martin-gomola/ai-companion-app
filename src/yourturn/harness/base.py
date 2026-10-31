@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, TypeAlias, runtime_checkable
+from typing import Any, Protocol, TypeAlias, runtime_checkable
 
 from yourturn.model import Capabilities, Handoff, SessionRef
 
@@ -21,12 +21,16 @@ class Meta:
     session_id: str | None = None
     cwd: str | None = None
     model: str | None = None
+    model_provider: str | None = None
+    reasoning_effort: str | None = None
     harness: str | None = None
     originator: str | None = None
     cli_version: str | None = None
     git_branch: str | None = None
     git_commit: str | None = None
     git_repo_url: str | None = None
+    subagent: bool | None = None
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -39,27 +43,39 @@ class TurnStarted:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TurnEnded:
-    """An agent turn finished (completed, interrupted, failed...)."""
+    """An agent turn finished (completed, interrupted, failed...).
+
+    `duration_ms` is the harness-reported duration; None falls back to the turn's start time.
+    """
 
     ts: datetime | None = None
     turn_id: str | None = None
     reason: str | None = None
+    duration_ms: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserMessage:
-    """A prompt from the user."""
+    """A prompt from the user. Non-empty `answers` ((question, answer) pairs) replies to asked questions."""
 
     ts: datetime | None = None
     text: str = ""
+    answers: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class AgentMessage:
-    """A message from the agent to the user."""
+    """A message from the agent to the user.
+
+    `phase` is the harness's message phase ("final_answer" marks the turn's answer); None means the
+    harness has no phases, so the turn's last plain message is promoted to its answer. `questions`
+    are `{"title", "options"}` dicts the agent asked the user in this message.
+    """
 
     ts: datetime | None = None
     text: str = ""
+    phase: str | None = None
+    questions: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -95,14 +111,37 @@ class ToolCall:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class Reasoning:
+    """A reasoning summary from the agent."""
+
+    ts: datetime | None = None
+    text: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ContextCompacted:
+    """The harness compacted the conversation context."""
+
+    ts: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Usage:
-    """Cumulative token usage as reported by the harness."""
+    """Token usage as reported by the harness.
+
+    The int fields are cumulative totals. `total`, when not None, is the raw cumulative counter dict
+    and wins over them (an empty dict means no totals in this report). `last` is the latest request's
+    counters and `window` the model context window.
+    """
 
     ts: datetime | None = None
     input_tokens: int = 0
     output_tokens: int = 0
     cached_input_tokens: int = 0
     total_tokens: int = 0
+    total: dict[str, int] | None = None
+    last: dict[str, int] = field(default_factory=dict)
+    window: int | None = None
 
 
 Event: TypeAlias = (
@@ -114,6 +153,8 @@ Event: TypeAlias = (
     | CommandRun
     | FilesEdited
     | ToolCall
+    | Reasoning
+    | ContextCompacted
     | Usage
 )
 
@@ -126,6 +167,8 @@ EVENT_TYPES: tuple[type, ...] = (
     CommandRun,
     FilesEdited,
     ToolCall,
+    Reasoning,
+    ContextCompacted,
     Usage,
 )
 
