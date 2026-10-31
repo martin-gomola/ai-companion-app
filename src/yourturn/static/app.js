@@ -706,9 +706,9 @@ function syncAppearance() {
 function syncSettingsNotifications() {
   const blocked = notifySupported && Notification.permission === "denied";
   $("notification-status").textContent = !notifySupported ? "This browser does not support desktop notifications here."
-    : blocked ? "Blocked in this browser’s site settings. Enable permission there to use notifications."
+    : blocked ? "Blocked in this browser’s site settings. Allow them there."
     : notifyOn() ? "On while a Your Turn tab is open." : "Off in this browser.";
-  $("settings-notify").disabled = !notifySupported || blocked;
+  $("settings-notify").hidden = !notifySupported || blocked;
   $("settings-notify").textContent = notifyOn() ? "Turn off notifications" : "Enable notifications";
 }
 
