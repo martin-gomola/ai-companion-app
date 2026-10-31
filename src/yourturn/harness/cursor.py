@@ -8,6 +8,8 @@ commands have no exit code and every event is stamped with its turn's prompt tim
 Title, workspace folder, archived and sub-agent flags, and whether the composer is blocked on an
 approval (`hasBlockingPendingActions`) come from the `composerHeaders` table of
 Cursor's `globalStorage/state.vscdb`, opened with `mode=ro` (never written, WAL included).
+When that database is readable, transcripts it does not index (deleted or cleaned-up chats) are
+skipped, as are empty transcripts. A turn left open with no write for an hour is closed as stopped.
 """
 
 from __future__ import annotations
@@ -49,6 +51,9 @@ USER_QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.DOTALL)
 PROMPT_TIME = re.compile(r"<timestamp>\s*(.*?)\s*</timestamp>", re.DOTALL)
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.MULTILINE)
 APPROVAL_TEXT = "Approve pending action in Cursor"
+# A turn with no `turn_ended` and no transcript write for this long was abandoned (window closed, run killed).
+ABANDONED_SECONDS = 3600
+ABANDONED = "no activity for over an hour"
 UTC_OFFSET = re.compile(r"\(UTC([+-])(\d{1,2})(?::(\d\d))?\)")
 
 
@@ -134,6 +139,7 @@ class CursorCursor(CodexCursor):
         self._ts: datetime | None = None
         self._asked: list[str] = []
         self._approval = False
+        self._open = False  # A turn started and has not ended.
 
     def reset(self) -> None:
         super().reset()
@@ -181,11 +187,21 @@ class CursorCursor(CodexCursor):
         if pending != self._approval:
             self._approval = pending
             events.append(ApprovalPending(ts=header.get("updated"), pending=pending, text=APPROVAL_TEXT))
+        # An open turn nobody is approving or answering, untouched for an hour, will not end on its own.
+        if self._open and not pending and not self._asked:
+            try:
+                modified = self._path.stat().st_mtime
+            except OSError:
+                return events
+            if time.time() - modified > ABANDONED_SECONDS:
+                self._open = False
+                events.append(TurnEnded(ts=datetime.fromtimestamp(modified, timezone.utc), reason=ABANDONED))
         return events
 
     def _events(self, record: dict[str, Any]) -> list[Event]:
         events = self._meta()
         if record.get("type") == "turn_ended":
+            self._open = False
             ok = record.get("status") == "success"
             return events + [TurnEnded(ts=self._ts, reason=TURN_COMPLETED if ok else str(record.get("error") or "error"))]
         message = record.get("message") if isinstance(record.get("message"), dict) else {}
@@ -198,9 +214,11 @@ class CursorCursor(CodexCursor):
                 return events
             self._ts = parse_prompt_time(raw) or self._ts
             self._asked = []
+            self._open = True
             return events + [TurnStarted(ts=self._ts), UserMessage(ts=self._ts, text=text)]
         if record.get("role") != "assistant":
             return events
+        self._open = True  # Also covers a read that started mid-turn.
         if self._asked:
             # The agent carried on, so the user answered in Cursor; the transcript does not say what,
             # so the answer text stays empty ("answered, text not recorded").
@@ -308,9 +326,11 @@ class CursorAdapter:
         found: list[tuple[float, Path]] = []
         for path in projects.glob(TRANSCRIPT_GLOB):
             try:
-                found.append((path.stat().st_mtime, path))
+                stat = path.stat()
             except OSError:
                 continue
+            if stat.st_size:  # An empty transcript has no chat to show.
+                found.append((stat.st_mtime, path))
         found.sort(reverse=True)
         cutoff = time.time() - self.max_age_days * 86400 if self.max_age_days is not None else None
         self._headers = self._read_headers()
@@ -318,7 +338,11 @@ class CursorAdapter:
             # Each transcript is its session's own file, so its mtime is that session's last activity.
             if cutoff is not None and mtime < cutoff:
                 break
-            header = self._headers.get(path.stem, {})
+            header = self._headers.get(path.stem)
+            if header is None:
+                if self._headers:
+                    continue  # Cursor no longer indexes this chat: deleted or cleaned up.
+                header = {}
             if header.get("archived") or (header.get("subagent") and not self.include_subagents):
                 continue
             cwd = header.get("cwd") or decode_slug(path.parents[2].name)
@@ -335,7 +359,12 @@ class CursorAdapter:
     def state_token(self, ref: SessionRef) -> str:
         """Changes when Cursor's own state for the session changes (activity, pending approvals)."""
         header = self._headers.get(ref.session_id, {})
-        return f"{header.get('updated')}:{header.get('pending', False)}"
+        try:
+            idle = ref.path is not None and time.time() - ref.path.stat().st_mtime > ABANDONED_SECONDS
+        except OSError:
+            idle = False
+        # `idle` flips once an hour after the last write, so an abandoned turn is closed without a new write.
+        return f"{header.get('updated')}:{header.get('pending', False)}:{idle}"
 
     def title(self, ref: SessionRef) -> str:
         return str(self._headers.get(ref.session_id, {}).get("title") or "")

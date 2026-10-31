@@ -307,12 +307,12 @@ OLD = "019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5e"
 
 INBOX_KEYS = {
     "id", "cwd", "status", "updated_at", "turn_ended_at", "outcome", "next_kind", "next_text",
-    "question", "options", "attention_key", "check_state", "needs_you", "quiet", "project", "title",
+    "question", "options", "attention_key", "check_state", "pending_tool", "needs_you", "quiet", "project", "title",
 }
 DETAIL_KEYS = {
     "id", "title", "cwd", "project", "parent_id", "subagent", "started_at", "updated_at", "status",
     "context_used", "context_window", "token_usage", "last_token_usage", "token_usage_at", "model",
-    "reasoning_effort", "model_provider", "git_branch", "cli_version", "activity", "attention_key",
+    "reasoning_effort", "model_provider", "git_branch", "cli_version", "activity", "pending_tool", "attention_key",
     "version", "turns", "steps", "decisions", "needs_you", "quiet", "capabilities",
 }
 TURN_KEYS = {

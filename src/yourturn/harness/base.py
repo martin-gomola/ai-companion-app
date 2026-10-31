@@ -136,6 +136,17 @@ class ApprovalPending:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ToolPending:
+    """The agent's latest tool call has no result yet (`text` names it); "" once none is outstanding.
+
+    Unlike `ApprovalPending` it does not mean the user is needed: a long command looks the same.
+    """
+
+    ts: datetime | None = None
+    text: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Usage:
     """Token usage as reported by the harness.
 
@@ -166,6 +177,7 @@ Event: TypeAlias = (
     | Reasoning
     | ContextCompacted
     | ApprovalPending
+    | ToolPending
     | Usage
 )
 
@@ -181,6 +193,7 @@ EVENT_TYPES: tuple[type, ...] = (
     Reasoning,
     ContextCompacted,
     ApprovalPending,
+    ToolPending,
     Usage,
 )
 

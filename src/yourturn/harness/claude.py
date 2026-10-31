@@ -26,6 +26,7 @@ from yourturn.harness.base import (
     Meta,
     Reasoning,
     ToolCall,
+    ToolPending,
     TurnEnded,
     TurnStarted,
     Usage,
@@ -97,6 +98,16 @@ def _first_line(command: object) -> str:
     return _command({"command": command if isinstance(command, str) else ""})
 
 
+def _pending_label(name: str, arguments: dict[str, Any]) -> str:
+    """`Bash: uv run pytest`, `Edit: app.py`, or the tool name."""
+    if name == "Bash":
+        return f"Bash: {_first_line(arguments.get('command'))}"
+    path = arguments.get("file_path") or arguments.get("notebook_path")
+    if name in EDIT_TOOLS and path:
+        return f"{name}: {Path(str(path)).name}"
+    return _tool_name(name)
+
+
 class ClaudeCursor(CodexCursor):
     """Incremental reader over one Claude Code transcript (implements `EventCursor`)."""
 
@@ -110,12 +121,22 @@ class ClaudeCursor(CodexCursor):
         self._settings: tuple[str, str] | None = None  # (model, effort) last announced
         self._tools: dict[str, tuple[str, dict[str, Any]]] = {}  # tool_use id -> (name, input)
         self._messages: set[str] = set()
+        self._waiting = ""  # The outstanding tool call last reported as ToolPending.
         # ponytail: totals restart at the read start, so a tail read under-counts; a full read is exact.
         self._totals = {"input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
     def reset(self) -> None:
         super().reset()
         self._clear()
+
+    def read_new(self) -> list[Event]:
+        events = super().read_new()
+        # A tool_use with no tool_result yet is running, or waiting for approval in the terminal.
+        waiting = next((_pending_label(name, arguments) for name, arguments in reversed(self._tools.values()) if name != ASK_TOOL), "")
+        if waiting != self._waiting:
+            self._waiting = waiting
+            events.append(ToolPending(text=waiting))
+        return events
 
     def _head_events(self) -> list[Event]:
         """The session header comes from the first record that carries a `cwd`."""
@@ -185,6 +206,9 @@ class ClaudeCursor(CodexCursor):
             if isinstance(block, dict) and block.get("type") == "tool_result":
                 events.extend(self._result(ts, block))
         text = prompt_text(content)
+        if text or LOCAL_OUTPUT in str(content):
+            # A new prompt or a stop: calls still without a result will never get one.
+            self._tools.clear()
         if LOCAL_OUTPUT in str(content):
             # A built-in slash command (/model, /clear) answered locally: its turn is over, no agent reply follows.
             events.append(TurnEnded(ts=ts, reason=TURN_COMPLETED))

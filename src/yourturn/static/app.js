@@ -33,6 +33,7 @@ function appName(chat) {
 }
 
 function quietHint(chat) {
+  if (chat.pending_tool) return `No activity recorded. Its last call has no result yet (${chat.pending_tool}): it may be waiting for your approval in ${appName(chat)}, or still running.`;
   return `No activity recorded. It may be waiting for your approval in ${appName(chat)}, or running a long command.`;
 }
 const QUIET_NOTIFY_MS = 5 * 60 * 1000;

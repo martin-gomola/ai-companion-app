@@ -20,10 +20,19 @@ can trust it, and what to do next.**
 
 </div>
 
-Coding agents are capable enough now that the slow part is the person running them. I run many
-chats in parallel across Codex, Claude Code, and Cursor; their answers are long, and with several
-open it is easy to miss the one blocked on me. Your Turn puts them in one inbox and answers four
-questions per chat, at a glance:
+Coding agents are capable enough now that the slow part is the person running them. Codex runs in
+one terminal, Claude Code in another, Cursor in the IDE; each answer is long, and the one blocked on
+you sits in a window you are not looking at. The usual fix is to click through every window and
+skim every log. Your Turn reads the files those apps already write and turns them into one queue,
+so you can see without switching:
+
+- **Who is waiting on me?** A question, a pending approval, or a finished turn that asks you to act.
+- **Can I trust the result without reading the whole log?** Whether checks ran after the last code
+  edit, and whether they passed.
+- **What is the next step?** One line, and a button that opens the chat in its own app.
+
+It is not another agent runner, IDE wrapper, or cloud dashboard. It starts nothing, needs no
+account or config, and works on the chats you already have. The four questions it answers per chat:
 
 | Question | Where the answer is |
 | --- | --- |
@@ -79,17 +88,26 @@ each chat into a short recap.
 
 | App | What Your Turn reads | Change the location with |
 | --- | --- | --- |
-| Codex | Session files under `~/.codex/sessions` | `--codex-home` or `CODEX_HOME` |
+| Codex | Session files under `~/.codex/sessions`, and chat titles from `~/.codex/session_index.jsonl` | `--codex-home` or `CODEX_HOME` |
 | Claude Code | Transcripts under `~/.claude/projects` | `--claude-home` or `CLAUDE_CONFIG_DIR` |
-| Cursor | Agent transcripts under `~/.cursor/projects`, plus chat titles, folders, and pending approvals from Cursor's `state.vscdb`, opened read-only | `--cursor-home` |
+| Cursor | Agent transcripts under `~/.cursor/projects/*/agent-transcripts` | `--cursor-home` |
+| Cursor | Chat titles, folders, archived and sub-agent flags, and pending approvals from `globalStorage/state.vscdb`, opened with SQLite `mode=ro` | `--cursor-user-dir` (default: `~/Library/Application Support/Cursor/User` on macOS, `~/.config/Cursor/User` on Linux, `AppData/Roaming/Cursor/User` on Windows) |
 
-Each chat has one button for acting on it:
+`your-turn serve` and `your-turn install` take the same options: `--port` (default 8787) and the
+four location flags above. The server always binds `127.0.0.1`.
 
-| App | Button | What it does |
-| --- | --- | --- |
-| Codex | **Open in Codex** | Opens the chat in Codex |
-| Claude Code | **Copy resume command** | Copies `claude --resume <id>` to paste in a terminal |
-| Cursor | **Open in Cursor** | Opens the chat's project folder in Cursor |
+The apps do not record the same things, so each chat shows only what its source can back up:
+
+| | Codex | Claude Code | Cursor |
+| --- | --- | --- | --- |
+| Turn start and end | Logged by Codex | Inferred from prompts and the last text block | Logged by Cursor |
+| Questions to you | Structured questions with options | `AskUserQuestion`, caught mid-turn while the agent waits | `AskQuestion`; the answer text is not recorded |
+| Pending approvals | Not logged | Not logged; a quiet chat names the tool call still without a result | `hasBlockingPendingActions` from `state.vscdb` |
+| Check results | Real exit codes | Pass or fail (tool error flag) | Not recorded |
+| Timestamps | Per event | Per event | Per turn |
+| Token usage | Yes | Yes | No |
+| Handoff plugin | Yes (`log_decision`, handoff format) | Paste the snippet | Paste the snippet |
+| Chat action | **Open in Codex** | **Copy resume command** (`claude --resume <id>`) | **Open in Cursor** (project folder) |
 
 | Part | What it does |
 | --- | --- |
@@ -97,8 +115,8 @@ Each chat has one button for acting on it:
 | Chat page | The outcome, next step, changed files, checks, decisions, and full timeline, with the chat's action button. |
 | Alerts | The tab title and favicon show the Needs you count. Desktop notifications are optional. |
 | App badge | Each row says whether the chat is from Codex, Claude, or Cursor. |
-| Quiet tag | A working chat silent for two minutes. It may be waiting on an approval or a long command. |
-| Check tags | **Check failed** when the latest check failed. **Edits unchecked** when code changed with no test or lint after it. |
+| Quiet tag | A working chat silent for two minutes. It may be waiting on an approval or a long command. For Claude Code, its tooltip names the call still waiting, such as `Bash: make deploy`. |
+| Check tags | **Check failed** when the latest check failed. **Edits unchecked** when code changed with no test or lint after it. Edits to Markdown, text, and `docs/` alone raise neither. |
 | Reminders | **Dismiss reminder** clears a chat from Needs you in this browser. It never answers anything in the agent's app. |
 
 Recaps come from the agent's final answer:
@@ -107,6 +125,28 @@ Recaps come from the agent's final answer:
 | --- | --- |
 | `**Outcome:**`, `**Next step:**`, and `**Recap:**` lines | Those lines as written |
 | No handoff lines | The first paragraph as the outcome, and a best-guess next step: Run, Review, or Answer |
+
+A chat lands in **Needs you** when it has an unanswered question, a pending Cursor approval, or a
+finished turn whose next step is Answer, Review, Approve, Run, Decide, or Do. A check is a command
+that runs a test, lint, type-check, or build tool (`pytest`, `ruff`, `tsc`, `npm test`,
+`make check`, and similar); `rg pytest` is a search, not a check. A later run of the same check
+replaces the earlier result.
+
+What stays out, so the inbox lists only chats you opened and only what you typed:
+
+- Sub-agents: Codex sub-agent threads and headless `codex exec` runs, Claude Code sidechain
+  transcripts, and Cursor composers flagged as sub-agents. Starting one shows as a step in its
+  parent chat.
+- Archived Cursor chats, empty Cursor transcripts, and transcripts Cursor no longer indexes in
+  `state.vscdb` (deleted or cleaned-up chats), plus every chat whose file has not changed within
+  `history_days`.
+- Abandoned Cursor turns: a turn with no end, no pending approval or question, and no transcript
+  write for an hour is shown as stopped instead of Working.
+- Context the apps inject into prompts: Codex environment blocks, Claude Code system reminders,
+  hook output and slash-command wrappers, and Cursor's context tags.
+- Unreadable data: malformed lines are skipped, a file that shrinks is re-read from the start, and
+  an unreadable `state.vscdb` drops Cursor titles, approvals, and the archived and sub-agent
+  filters, while the transcripts still load.
 
 The in-app Help page covers statuses, privacy, and troubleshooting.
 
@@ -126,11 +166,13 @@ older chats.
 - Recaps are only as good as the agent's final answer. Older chats and agents that skip the handoff
   lines usually show an unknown next step.
 - Codex and Claude Code do not log approval requests, so a chat blocked on one shows as Working,
-  then Quiet. Quiet never counts toward Needs you, because a long-running command looks the same.
+  then Quiet. Claude Code at least names the tool call that has no result yet. Quiet never counts toward Needs you, because a long-running command looks the same.
   Cursor does report them: a Cursor chat waiting for approval moves into Needs you with
   **Approve pending action in Cursor**, and leaves it once you approve.
 - Cursor transcripts record commands but not their results, so Cursor checks show no pass or fail,
   and its timeline times are per turn, not per step. Only the latest turn end is exact.
+- Claude Code reports whether a command errored, not its exit code, so a check shows pass or fail
+  without the code.
 - Claude Code and Cursor have no chat deep link: Claude Code gets a resume command, and Cursor opens
   the project folder rather than the chat itself.
 - Codex is the only app that gets the handoff plugin. Recaps for Claude Code and Cursor follow the

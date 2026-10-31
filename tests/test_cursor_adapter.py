@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -292,3 +294,35 @@ def test_pending_approval_needs_you_until_cursor_clears_it(tmp_path: Path) -> No
     assert (row["status"], row["next_kind"], row["needs_you"], row["attention_key"]) == ("done", "unknown", False, "")
     detail = hub.detail_dict(f"cursor:{CID}")
     assert detail is not None and (detail["status"], detail["needs_you"]) == ("done", False)
+
+
+def test_discover_skips_orphaned_and_empty_transcripts(tmp_path: Path) -> None:
+    home, user_dir = tmp_path / "cursor", tmp_path / "User"
+    orphan, empty = "9f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5d", "9f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5e"
+    _write(home, _turn())
+    _write(home, _turn(), cid=orphan)  # Has a transcript, but Cursor no longer indexes it.
+    _write(home, [], cid=empty)
+    _database(user_dir, [(CID, 0, 0, _header("Fix parser")), (empty, 0, 0, _header("Empty chat"))])
+    assert [ref.session_id for ref in CursorAdapter(home=home, user_dir=user_dir).discover()] == [CID]
+    # Without a readable database there is no index to check against, so the orphan stays.
+    found = {ref.session_id for ref in CursorAdapter(home=home, user_dir=tmp_path / "none").discover()}
+    assert found == {CID, orphan}
+
+
+def test_open_turn_untouched_for_an_hour_is_stopped(tmp_path: Path) -> None:
+    path = _write(tmp_path, [user("Fix the bug"), assistant(text("Looking."), tool("Shell", {"command": "make build"}))])
+    assert _fold(path).status == "working"
+    hours_ago = time.time() - 2 * 3600
+    os.utime(path, (hours_ago, hours_ago))
+    folder = _fold(path)
+    assert (folder.status, folder.turns[-1].status) == ("interrupted", "interrupted")
+    assert folder.steps[-1].detail == "no activity for over an hour"
+    # A pending approval or an open question still waits for the user, however old.
+    header = {"pending": True}
+    ref = SessionRef(harness="cursor", session_id=CID, path=path, cwd=CWD)
+    approval = TurnFolder(ref)
+    approval.fold_many(CursorCursor(ref, header=lambda: header).read_new())
+    assert approval.inbox_fields()["status"] == "waiting"
+    asked = _write(tmp_path, [user("Ship?"), assistant(ASK)], cid=ARCHIVED)
+    os.utime(asked, (hours_ago, hours_ago))
+    assert _fold(asked).inbox_fields()["needs_you"] is True

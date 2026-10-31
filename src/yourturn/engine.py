@@ -29,6 +29,7 @@ from yourturn.config import DEFAULT_HISTORY_DAYS
 from yourturn.harness.base import (
     AgentMessage,
     ApprovalPending,
+    ToolPending,
     CommandRun,
     ContextCompacted,
     Event,
@@ -164,6 +165,8 @@ class TurnFolder:
         # A pending approval overlays the latest turn's state until the harness clears it.
         self.approval = ""
         self._attention_before = ""
+        # The latest tool call still without a result (Claude Code), shown when the chat goes quiet.
+        self.pending_tool = ""
 
     @property
     def id(self) -> str:
@@ -201,12 +204,14 @@ class TurnFolder:
         self.turns.append(Turn(index=index, started_at=at))
         self._last_message = None
         self.status = "working"
+        self.pending_tool = ""
         self._step(at, "turn", f"Turn {index} started")
 
     def _close_turn(self, at: str, stopped: str | None, duration: str) -> None:
         """End the current turn: `stopped` is the abort reason, or None for a completed turn."""
         turn = self._turn(at)
         turn.ended_at = at
+        self.pending_tool = ""
         if stopped is not None:
             turn.status = "interrupted"
             self._step(at, "turn", f"Turn {turn.index} stopped", stopped, "failed")
@@ -304,6 +309,8 @@ class TurnFolder:
             self._step(at, "turn", "Context compacted")
         elif isinstance(event, ApprovalPending):
             self._approval(at, event)
+        elif isinstance(event, ToolPending):
+            self.pending_tool = clip(event.text, 160)
         elif isinstance(event, CommandRun):
             self._run(at, self._turn(at), event.command, event.exit_code)
         elif isinstance(event, FilesEdited):
@@ -473,6 +480,7 @@ class TurnFolder:
             "options": pending.options if pending else [],
             "attention_key": self.attention_key,
             "check_state": check_state(turn),
+            "pending_tool": self.pending_tool,
         }
         row["needs_you"] = needs_you(row)
         return row
@@ -512,6 +520,7 @@ class TurnFolder:
             "git_branch": self.git_branch,
             "cli_version": self.cli_version,
             "activity": self.activity,
+            "pending_tool": self.pending_tool,
             "attention_key": self.attention_key,
             "version": self.version,
             "turns": turns,

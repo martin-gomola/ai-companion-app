@@ -255,3 +255,25 @@ def test_hub_registers_claude_next_to_codex(tmp_path: Path) -> None:
     assert (snapshot.ref.harness, snapshot.title, snapshot.phase.value) == ("claude", "Fix parser", "done")
     detail = hub.detail(SessionKey.parse(f"claude:{SID}"))
     assert detail is not None and detail.handoff.resume_command == f"claude --resume {SID}"
+
+
+def test_tool_call_without_a_result_is_reported_until_it_returns(tmp_path: Path) -> None:
+    records = [user(1, "Deploy"), assistant(2, tool_use("t1", "Bash", command="make deploy\n--verbose"))]
+    path = _write(tmp_path, records)
+    ref = SessionRef(harness="claude", session_id=SID, path=path, cwd=CWD)
+    cursor, folder = ClaudeCursor(ref), TurnFolder(ref)
+    folder.fold_many(cursor.read_new())
+    row = folder.inbox_fields()
+    # Waiting on a tool is not waiting on the user: a long command looks the same.
+    assert (row["status"], row["needs_you"], row["pending_tool"]) == ("working", False, "Bash: make deploy")
+
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(result(3, "t1", "ok")) + "\n")
+        handle.write(json.dumps(assistant(4, tool_use("t2", "Write", file_path=f"{CWD}/notes/app.py", content="x"), msg_id="m2")) + "\n")
+    folder.fold_many(cursor.read_new())
+    assert folder.inbox_fields()["pending_tool"] == "Write: app.py"
+
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(user(5, [{"type": "text", "text": "[Request interrupted by user]"}])) + "\n")
+    folder.fold_many(cursor.read_new())
+    assert (folder.status, folder.inbox_fields()["pending_tool"]) == ("interrupted", "")
