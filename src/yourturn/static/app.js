@@ -585,7 +585,9 @@ function renderStatus(thread, turn) {
   $("status-card").dataset.quiet = String(quiet);
   $("status-icon").setAttribute("href", `#${status.icon}`);
   if (state === "working") syncSpin($("status-icon"));
-  $("status-title").textContent = quiet ? "Working · quiet" : status.label;
+  // A waiting request says how long it has waited, so a fresh ask and a stale one read differently.
+  const waited = state === "waiting" ? ago(turn?.ended_at || thread.updated_at) : "";
+  $("status-title").textContent = quiet ? "Working · quiet" : waited && waited !== "just now" ? `${status.label} · ${waited}` : status.label;
   const failed = thread.status !== "working" && Boolean(turn?.checks.some((check) => check.exit_code !== null && check.exit_code !== 0));
   // Codex and Cursor open by deep link (Cursor: the project folder); Claude Code offers its resume command.
   const resume = thread.harness === "claude" ? thread.handoff?.resume_command || "" : "";
@@ -630,6 +632,9 @@ function renderStatus(thread, turn) {
   const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${quietHint(thread).replace(/^No activity recorded\. /, "")}` : "";
   $("quiet-note").hidden = !quiet;
   if ($("quiet-note").textContent !== quietNote) $("quiet-note").textContent = quietNote;
+  // One headline per request: drop the kind label when the request already starts with it
+  // ("Approve" above "Approve pending action in Cursor").
+  if (label && $("status-text").textContent.trim().toLowerCase().startsWith(label.toLowerCase())) label = "";
   $("next-kind").hidden = !label;
   $("next-kind").textContent = label;
   const options = pending && thread.status !== "working" ? pending.options : [];
@@ -818,10 +823,12 @@ function relativePath(path, cwd) {
 function renderChanges(thread, turn) {
   const files = turn ? turn.files : [];
   const checks = turn ? turn.checks : [];
+  // Codex records exit codes; Claude Code only success or failure; Cursor records no results at all.
+  const exitCodes = thread.capabilities?.exit_codes !== false;
   let warning = "";
   if (turn && turn.edited_after_check) warning = "Files changed after the last check ran.";
   else if (files.length && !checks.length) warning = "No tests or linters ran after these edits.";
-  else if (checks.some((check) => check.exit_code === null)) warning = "Some checks have no recorded exit result.";
+  else if (checks.some((check) => check.exit_code === null)) warning = exitCodes ? "Some checks have no recorded exit result." : `${appName(thread)} doesn't record command results, so these checks show no outcome.`;
   $("checks-wrap").hidden = !warning && checks.length === 0;
   $("check-warning").hidden = !warning;
   $("check-warning-text").textContent = warning;
@@ -829,7 +836,9 @@ function renderChanges(thread, turn) {
     const state = check.exit_code === null ? "unknown" : check.exit_code === 0 ? "passed" : "failed";
     const item = el("li", "list-row check");
     item.dataset.state = state;
-    const result = state === "unknown" ? "Exit not reported" : state === "passed" ? "Passed" : `Failed (exit ${check.exit_code})`;
+    // Claude Code's 0/1 comes from is_error, not a real exit code, so it is not shown as one.
+    const failure = exitCodes ? `Failed (exit ${check.exit_code})` : "Failed";
+    const result = state === "unknown" ? (exitCodes ? "Exit not reported" : "Not recorded") : state === "passed" ? "Passed" : failure;
     item.append(icon(state === "unknown" ? "i-question" : state === "passed" ? "i-answer" : "i-alert"), commandCode(check.command), el("span", "check-result", result));
     return item;
   }));
@@ -873,20 +882,22 @@ function renderDecisions(thread) {
     item.dataset.record = record;
     const at = new Date(decision.at);
     const when = [decision.turn ? `Turn ${decision.turn}` : "", Number.isNaN(at.getTime()) ? "" : at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · ");
-    const answer = (decision.chosen || "").replace(/^#+\s*/, "") || "No answer text recorded.";
-    const question = el("p", "decision-question", decision.question);
-    question.title = decision.question;
+    const answer = (decision.chosen || "").replace(/^#+\s*/, "");
+    // Without answer text the question is the only information, so it leads instead of a placeholder.
+    const lead = el("p", "decision-answer-text", answer || decision.question);
+    const context = el("p", "decision-question", answer ? decision.question : `Answered in ${appName(thread)}; the answer was not recorded.`);
+    if (answer) context.title = decision.question;
     const meta = el("p", "decision-meta");
     meta.append(el("span", "decision-role", decision.source === "agent" ? "Agent" : "You"), ...(when ? [` · ${when}`] : []));
-    item.replaceChildren(el("p", "decision-answer-text", answer), question, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), meta);
-    const alternatives = decision.options.filter((option) => option !== decision.chosen);
+    item.replaceChildren(lead, context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), meta);
+    const alternatives = answer ? decision.options.filter((option) => option !== decision.chosen) : decision.options;
     if (alternatives.length) {
       const disclosure = el("details", "decision-alternatives");
       disclosure.open = expanded;
       const summary = el("summary");
       const chevron = icon("i-chevron");
       chevron.classList.add("disclosure-chevron");
-      summary.append(el("span", "", `Other options (${alternatives.length})`), chevron);
+      summary.append(el("span", "", `${answer ? "Other options" : "Options"} (${alternatives.length})`), chevron);
       const options = el("ul", "decision-other-options");
       options.replaceChildren(...alternatives.map((option) => el("li", "", option)));
       disclosure.append(summary, options);

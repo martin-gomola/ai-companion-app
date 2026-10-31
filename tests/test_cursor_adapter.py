@@ -179,7 +179,7 @@ def test_cursor_emits_normalized_events(tmp_path: Path) -> None:
     names = [event.name for event in events if isinstance(event, ToolCall)]
     assert names == ["ask_user", "github · get_issue", "subagent"]
     answered = [event for event in events if isinstance(event, UserMessage) and event.answers]
-    assert answered[0].answers == (("Ship now?", "answered in Cursor"),)
+    assert answered[0].answers == (("Ship now?", ""),)
     # The last turn end is stamped with the transcript's last write, not the prompt time.
     assert isinstance(events[-1], TurnEnded) and events[-1].ts is not None and events[-1].ts != events[1].ts
 
@@ -192,7 +192,8 @@ def test_full_turn_folds_into_a_done_turn(tmp_path: Path) -> None:
     assert [(check.command, check.exit_code) for check in turn.checks] == [("uv run pytest -q", None)]
     assert (turn.outcome, turn.next_kind, turn.next_text) == ("Fixed the bug.", "review", "the diff")
     (decision,) = folder.decisions
-    assert (decision.question, decision.chosen) == ("Ship now?", "answered in Cursor")
+    # Answered (no longer pending), but Cursor does not record the answer text.
+    assert (decision.question, decision.chosen) == ("Ship now?", "")
     assert folder.inbox_fields()["needs_you"] is True
 
 

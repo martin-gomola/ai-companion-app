@@ -313,7 +313,7 @@ DETAIL_KEYS = {
     "id", "title", "cwd", "project", "parent_id", "subagent", "started_at", "updated_at", "status",
     "context_used", "context_window", "token_usage", "last_token_usage", "token_usage_at", "model",
     "reasoning_effort", "model_provider", "git_branch", "cli_version", "activity", "attention_key",
-    "version", "turns", "steps", "decisions", "needs_you", "quiet",
+    "version", "turns", "steps", "decisions", "needs_you", "quiet", "capabilities",
 }
 TURN_KEYS = {
     "index", "started_at", "ended_at", "status", "prompt", "outcome", "recap", "next_kind", "next_text",

@@ -202,8 +202,9 @@ class CursorCursor(CodexCursor):
         if record.get("role") != "assistant":
             return events
         if self._asked:
-            # The agent carried on, so the user answered in Cursor; the transcript does not say what.
-            events.append(UserMessage(ts=self._ts, answers=tuple((title, "answered in Cursor") for title in self._asked)))
+            # The agent carried on, so the user answered in Cursor; the transcript does not say what,
+            # so the answer text stays empty ("answered, text not recorded").
+            events.append(UserMessage(ts=self._ts, answers=tuple((title, "") for title in self._asked)))
             self._asked = []
         for block in blocks:
             if block.get("type") == "text" and isinstance(block.get("text"), str) and block["text"].strip():

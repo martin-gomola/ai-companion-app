@@ -118,8 +118,11 @@ for their own sake, are out of scope.
   "Open in Codex" (deep link), "Copy resume command" for Claude Code (copies `claude --resume <id>`
   and briefly confirms), or "Open in Cursor" (opens the project folder). It is the only filled accent button on the page, and it is filled only when the chat
   needs the user or a check failed; otherwise it is an outlined secondary link. Its body depends on state:
-  - Needs you: the action label and the request, with recorded options as a plain read-only list,
-    then the reminder control and its note ("Only affects this browser's inbox").
+  - Needs you: the title adds how long the request has waited ("Needs you · 12d ago"), so fresh and
+    stale requests read differently. Then the action label and the request, with recorded options as
+    a plain read-only list, then the reminder control and its note ("Only affects this browser's
+    inbox"). The action label is omitted when the request already starts with it, so one fact is
+    never stated twice ("Approve pending action in Cursor" needs no Approve label above it).
   - Working: this turn's latest recorded step, as its kind (Ran a command, Edited files, ...) and
     its source title, with commands in mono. The glyph rotates. A recorded command does not mean
     it is still running, and a new turn never shows the previous turn's step. When the chat is
@@ -137,12 +140,17 @@ for their own sake, are out of scope.
 - Checks, as grouped rows: a warning row when files changed after the last check, when edits had no
   check, or when a check has no exit code; and one row per check with its command and Passed,
   Failed (exit N), or Exit not reported. A missing exit code is never shown as passed, failed, or
-  running.
+  running. Labels follow what the chat's app records (`capabilities` in the thread JSON): Claude
+  Code reports only success or failure, so its failures read Failed with no invented exit code;
+  Cursor records no results, so its checks read Not recorded under one note saying Cursor doesn't
+  record command results.
 - Commands and paths use mono and wrap. Command highlighting (executable, path, flag, string,
   operator) is a presentation hint, not shell parsing; every character stays selectable inert text.
 - Decisions, as grouped rows: the question, the recorded answer labelled Agent decision or Your
   answer, the optional reason, the recorded turn and local time when available, and a collapsed
-  Other options disclosure that must not resemble choice buttons. Three recent decisions show
+  Other options disclosure that must not resemble choice buttons. When the app recorded that a
+  question was answered but not the answer (Cursor), the question leads, the context line reads
+  "Answered in Cursor; the answer was not recorded.", and the disclosure lists all Options (n). Three recent decisions show
   directly; older ones sit behind a counted disclosure row. A pending question appears in the status
   card, not here.
 - What happened shows the latest `Recap:` (Chat so far) above the latest turn's outcome (Latest

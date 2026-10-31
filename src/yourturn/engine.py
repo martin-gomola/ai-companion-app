@@ -1112,7 +1112,9 @@ class SessionHub:
                 except OSError:
                     data["quiet"] = False
                 ref = SessionRef(harness=Harness.CODEX.value, session_id=native, path=path, cwd=state.cwd or None)
-                return _keyed(data, self._codex(), ref)
+                codex = self._codex()
+                data["capabilities"] = asdict(codex.capabilities if codex else Capabilities())
+                return _keyed(data, codex, ref)
             self._discover()
             tracked = self._tracked.get(parsed)
             if tracked is None:
@@ -1122,6 +1124,8 @@ class SessionHub:
             data["title"] = data["title"] or tracked.folder._first_prompt()
             mtime = self._mtime_ns(tracked)
             data["quiet"] = is_quiet(data["status"], mtime) if mtime is not None else False
+            # What the source can record, so the UI can say what is missing instead of guessing.
+            data["capabilities"] = asdict(tracked.adapter.capabilities)
             return _keyed(data, tracked.adapter, tracked.ref)
 
 
