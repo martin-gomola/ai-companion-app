@@ -58,21 +58,35 @@ or Cursor.
 uvx --from git+https://github.com/martin-gomola/your-turn your-turn install
 ```
 
-1. It installs the Codex plugin, then starts the inbox on [http://127.0.0.1:8787](http://127.0.0.1:8787).
-2. Restart Codex. From then on, agents end each answer with an Outcome, a Next step, and a Recap,
-   say which checks they ran, and log their decisions. That is what makes the recaps exact.
+1. It sets up the handoff for each app it finds (`~/.codex`, `~/.claude`, `~/.cursor`), then starts
+   the inbox on [http://127.0.0.1:8787](http://127.0.0.1:8787).
+2. Restart the apps. From then on, agents end each answer with an Outcome, a Next step, and a
+   Recap, say which checks they ran, ask their questions with options, and log their decisions.
+   That is what makes the recaps exact.
+
+Everything goes into your own app folders, never into a project, so no repository gains a file or
+a `.gitignore` entry:
+
+| App | What `install` sets up |
+| --- | --- |
+| Codex | The `your-turn` plugin: the handoff skill and the `log_decision` MCP server |
+| Claude Code | `~/.claude/skills/your-turn/SKILL.md`, a marked `your-turn` block in `~/.claude/CLAUDE.md`, and the MCP server at user scope (through the `claude` CLI) |
+| Cursor | `~/.cursor/skills/your-turn/SKILL.md` and the MCP server in `~/.cursor/mcp.json` |
+
+Running it again changes nothing, and it leaves the rest of `CLAUDE.md` and `mcp.json` as it was.
+`--harness codex`, `claude`, `cursor` or `all` picks the apps yourself. `your-turn uninstall` takes
+the same options and removes exactly what `install` added.
 
 Your existing chats from all three apps appear right away. Next time, run the same command with
-`serve` in place of `install` to start only the inbox. The plugin is Codex-only; Claude Code and
-Cursor chats need nothing installed.
+`serve` in place of `install` to start only the inbox.
 
 <details>
 <summary>Only the inbox, or install from a clone</summary>
 
 | You want | Do this |
 | --- | --- |
-| Only the inbox, no plugin | Run the command with `serve` instead of `install`. Recaps fall back to the first paragraph of each answer and a guessed next step. |
-| The handoff format without the plugin | Paste [docs/agents-snippet.md](./docs/agents-snippet.md) into `~/.codex/AGENTS.md`. Decisions are then not logged. |
+| Only the inbox, no handoff | Run the command with `serve` instead of `install`. Recaps fall back to the first paragraph of each answer and a guessed next step. |
+| The handoff format without installing anything | Paste [docs/agents-snippet.md](./docs/agents-snippet.md) into the app's global instructions, such as `~/.codex/AGENTS.md`. Decisions are then not logged. |
 | To develop Your Turn | Clone the repo and run `make install`. The plugin then runs from your checkout, and the server starts in the background. If the clone is not at `~/dev/your-turn`, set `YOUR_TURN_REPO` in the environment Codex runs in. |
 
 </details>
@@ -110,7 +124,7 @@ The apps do not record the same things, so each chat shows only what its source 
 | Check results | Real exit codes | Pass or fail (tool error flag) | Not recorded |
 | Timestamps | Per event | Per event | Per turn |
 | Token usage | Yes | Yes | No |
-| Handoff plugin | Yes (`log_decision`, handoff format) | Paste the snippet | Paste the snippet |
+| Handoff from `install` | Plugin (skill, `log_decision`) | Skill, `CLAUDE.md` block, `log_decision` | Skill, `log_decision` |
 | Chat action | **Open in Codex** | **Copy resume command** (`claude --resume <id>`) | **Open in Cursor** (project folder) |
 
 | Part | What it does |
@@ -182,9 +196,11 @@ older chats.
   without the code.
 - Claude Code and Cursor have no chat deep link: Claude Code gets a resume command, and Cursor opens
   the project folder rather than the chat itself.
-- Codex is the only app that gets the handoff plugin. Recaps for Claude Code and Cursor follow the
-  handoff format only if you ask the agent for it, for example with
-  [docs/agents-snippet.md](./docs/agents-snippet.md) in the project's agent instructions.
+- Cursor uses its global skill when the agent decides it applies; unlike Claude Code's `CLAUDE.md`,
+  Cursor has no global instructions file to make it apply to every chat. Recaps of chats without
+  the handoff fall back to the first paragraph and a guessed next step.
+- The Claude Code MCP server is added only when the `claude` CLI is on your `PATH`; without it,
+  the skill and `CLAUDE.md` block still apply, but decisions are not logged.
 
 ## Design
 

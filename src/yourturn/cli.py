@@ -1,39 +1,28 @@
-"""`yourturn serve` runs the dashboard; `yourturn install` adds the Codex plugin first;
-`yourturn mcp` is the plugin's MCP server."""
+"""`yourturn serve` runs the dashboard; `yourturn install` first sets up the handoff for every agent
+app found (globally, never in a project); `yourturn uninstall` removes it; `yourturn mcp` is the
+handoff's MCP server."""
 
 from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
-MARKETPLACE_SOURCE = "martin-gomola/your-turn"
-MARKETPLACE = "your-turn"
-PLUGIN = f"your-turn@{MARKETPLACE}"
-
-
-def install_plugin() -> bool:
-    """Install the handoff skill and MCP server into Codex. Returns False when Codex is unavailable."""
-    if not shutil.which("codex"):
-        print("Codex CLI not found, so the plugin was not installed. The inbox still works, with weaker recaps.", flush=True)
-        return False
-    listed = subprocess.run(["codex", "plugin", "marketplace", "list"], capture_output=True, text=True)
-    if not any(line.split()[:1] == [MARKETPLACE] for line in listed.stdout.splitlines()):
-        subprocess.run(["codex", "plugin", "marketplace", "add", MARKETPLACE_SOURCE], check=True)
-    subprocess.run(["codex", "plugin", "add", PLUGIN], check=True)
-    print(f"Installed {PLUGIN}. Restart Codex so agents start writing Your Turn handoffs.", flush=True)
-    return True
+from yourturn.install import APPS, detect, install, uninstall
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="yourturn")
     commands = parser.add_subparsers(dest="command", required=True)
     for name, help_text in (("serve", "Run the dashboard on localhost"),
-                            ("install", "Install the Codex plugin, then run the dashboard")):
+                            ("install", "Set up the handoff for Codex, Claude Code and Cursor, then run the dashboard"),
+                            ("uninstall", "Remove the handoff that install set up")):
         command = commands.add_parser(name, help=help_text)
         command.add_argument("--port", type=int, default=8787)
+        if name != "serve":
+            command.add_argument("--harness", choices=[*APPS, "all"], default=None,
+                                 help="Only this app, or all three (default: every app whose folder exists)")
         command.add_argument("--codex-home", type=Path,
                              default=Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")))
         command.add_argument("--claude-home", type=Path,
@@ -45,11 +34,15 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("mcp", help="Run the stdio MCP server used by the Codex plugin")
     args = parser.parse_args(argv)
 
-    if args.command == "install":
+    if args.command in ("install", "uninstall"):
+        homes = {"codex": args.codex_home, "claude": args.claude_home, "cursor": args.cursor_home}
+        harnesses = list(APPS) if args.harness == "all" else [args.harness] if args.harness else detect(homes)
         try:
-            install_plugin()
+            (install if args.command == "install" else uninstall)(harnesses, homes)
         except subprocess.CalledProcessError as error:
             parser.exit(1, f"Plugin install failed: {' '.join(error.cmd)}\n")
+        if args.command == "uninstall":
+            return
 
     if args.command == "mcp":
         from yourturn.mcp import serve as serve_mcp

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from yourturn.cli import install_plugin
+from yourturn.install import install_plugin
 
 
 def fake_codex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, marketplaces: str) -> Path:
@@ -28,7 +28,7 @@ def test_install_adds_marketplace_when_missing(tmp_path: Path, monkeypatch: pyte
 
 
 def test_install_reuses_existing_marketplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    log = fake_codex(tmp_path, monkeypatch, "MARKETPLACE  ROOT\\nyour-turn  /Users/me/your-turn\\n")
+    log = fake_codex(tmp_path, monkeypatch, "MARKETPLACE  ROOT\\nyour-turn  /Users/me/your-turn\\n")  # pii:allow (fake path)
     assert install_plugin()
     assert log.read_text().splitlines() == ["plugin marketplace list", "plugin add your-turn@your-turn"]
 
