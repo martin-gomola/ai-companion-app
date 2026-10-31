@@ -25,7 +25,16 @@ const STATUS = {
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
 const SECTION_ICONS = { waiting: "i-message-question", working: "i-working", new: "i-answer", earlier: "i-turn" };
-const QUIET_HINT = "No activity recorded. It may be waiting for your approval in Codex, or running a long command.";
+const APP_NAME = { codex: "Codex", claude: "Claude Code", cursor: "Cursor" };
+
+// Where the user acts on a chat; older payloads without `harness` are Codex chats.
+function appName(chat) {
+  return APP_NAME[chat?.harness] || APP_NAME.codex;
+}
+
+function quietHint(chat) {
+  return `No activity recorded. It may be waiting for your approval in ${appName(chat)}, or running a long command.`;
+}
 const QUIET_NOTIFY_MS = 5 * 60 * 1000;
 const CHECK_TAGS = {
   failed: { label: "Check failed", className: "tag--interrupted" },
@@ -229,7 +238,7 @@ function renderRow(chat) {
   if (state === "working" && chat.quiet) {
     const quiet = el("span", "tag tag--waiting", `Quiet ${quietFor(chat)}`);
     quiet.dataset.quietAt = chat.updated_at;
-    quiet.title = QUIET_HINT;
+    quiet.title = quietHint(chat);
     meta.append(quiet);
   } else if (tag) meta.append(el("span", `tag tag--${state}`, tag));
   if (unread && sectionOf(chat) !== "new") meta.append(el("span", "tag tag--new", "New"));
@@ -440,7 +449,7 @@ function alertOf(chat) {
   if (needsAttention(chat)) return { key: `need:${chat.attention_key || chat.turn_ended_at}`, title: `Needs you: ${chatName(chat)}`, body: chatSummary(chat) || "" };
   // Long builds also go quiet, so quiet chats notify later than they are tagged.
   if (chat.status === "working" && chat.quiet && Date.now() - new Date(chat.updated_at).getTime() > QUIET_NOTIFY_MS) {
-    return { key: `quiet:${chat.updated_at}`, title: `Quiet ${quietFor(chat)}: ${chatName(chat)}`, body: QUIET_HINT };
+    return { key: `quiet:${chat.updated_at}`, title: `Quiet ${quietFor(chat)}: ${chatName(chat)}`, body: quietHint(chat) };
   }
   return null;
 }
@@ -490,11 +499,15 @@ $("open-codex").addEventListener("click", async (event) => {
   const text = button.firstChild;
   try {
     await navigator.clipboard.writeText(command);
+    button.dataset.copied = "true";
     text.textContent = "Resume command copied";
   } catch {
     text.textContent = command;  // Shown so it can be selected and copied by hand.
   }
-  setTimeout(() => { if (button.dataset.copy === command) text.textContent = "Copy resume command"; }, 2000);
+  setTimeout(() => {
+    delete button.dataset.copied;
+    if (button.dataset.copy === command) text.textContent = "Copy resume command";
+  }, 2000);
 });
 
 function renderSessionInfo(thread, turn) {
@@ -574,15 +587,17 @@ function renderStatus(thread, turn) {
   if (state === "working") syncSpin($("status-icon"));
   $("status-title").textContent = quiet ? "Working · quiet" : status.label;
   const failed = thread.status !== "working" && Boolean(turn?.checks.some((check) => check.exit_code !== null && check.exit_code !== 0));
-  // Claude Code has no deep link: offer its resume command instead.
+  // Codex and Cursor open by deep link (Cursor: the project folder); Claude Code offers its resume command.
   const resume = thread.harness === "claude" ? thread.handoff?.resume_command || "" : "";
-  const action = resume ? "Copy resume command" : "Open in Codex";
-  if ($("open-codex").dataset.copy !== resume) $("open-codex").firstChild.textContent = action;
+  const link = thread.harness === "cursor" ? thread.handoff?.open_uri || "" : `codex://threads/${encodeURIComponent(thread.id)}`;
+  const action = resume ? "Copy resume command" : `Open in ${appName(thread)}`;
+  // Keep "Resume command copied" visible until its timeout restores the label.
+  if (!$("open-codex").dataset.copied) $("open-codex").firstChild.textContent = action;
   $("open-codex").dataset.copy = resume;
-  $("open-codex").href = resume ? "#" : `codex://threads/${encodeURIComponent(thread.id)}`;
-  $("open-codex").setAttribute("aria-label", resume ? `${action}: ${resume}` : "Open in Codex (full chat)");
+  $("open-codex").href = resume ? "#" : link;
+  $("open-codex").setAttribute("aria-label", resume ? `${action}: ${resume}` : thread.harness === "cursor" ? "Open the project in Cursor" : "Open in Codex (full chat)");
   $("open-codex").title = resume;
-  $("open-codex").hidden = false;
+  $("open-codex").hidden = !resume && !link;
   $("open-codex").dataset.emphasis = state === "waiting" || failed ? "" : "quiet";
   $("status-body").hidden = false;
 
@@ -612,7 +627,7 @@ function renderStatus(thread, turn) {
   }
   $("status-body").dataset.kind = kind;
   $("status-body").dataset.check = failed && (kind === "none" || kind === "unknown") ? "failed" : "";
-  const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${QUIET_HINT.replace(/^No activity recorded\. /, "")}` : "";
+  const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${quietHint(thread).replace(/^No activity recorded\. /, "")}` : "";
   $("quiet-note").hidden = !quiet;
   if ($("quiet-note").textContent !== quietNote) $("quiet-note").textContent = quietNote;
   $("next-kind").hidden = !label;
@@ -626,7 +641,7 @@ function renderStatus(thread, turn) {
   $("reminder-toggle").setAttribute("aria-label", dismissed ? "Restore reminder" : "Dismiss reminder");
   $("reminder-toggle").title = dismissed ? "Restore reminder" : "Dismiss reminder (this browser only; does not answer the request)";
   $("reminder-icon").setAttribute("href", dismissed ? "#i-bell" : "#i-bell-off");
-  $("reminder-note").textContent = dismissed ? "Only in this browser. The request is still open in Codex." : "";
+  $("reminder-note").textContent = dismissed ? `Only in this browser. The request is still open in ${appName(thread)}.` : "";
 
   const outcome = thread.status === "working" ? "" : turn?.outcome || "";
   const recap = thread.turns.findLast((each) => each.recap)?.recap || "";

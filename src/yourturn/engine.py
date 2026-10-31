@@ -55,6 +55,7 @@ from yourturn.harness.codex import (
     thread_id_of,
 )
 from yourturn.harness.claude import ClaudeAdapter
+from yourturn.harness.cursor import CursorAdapter
 from yourturn.heuristics import (
     check_key,
     check_state,
@@ -793,7 +794,11 @@ class SessionHub:
         self.adapters: list[HarnessAdapter] = (
             list(adapters)
             if adapters is not None
-            else [CodexAdapter(max_age_days=DEFAULT_HISTORY_DAYS), ClaudeAdapter(max_age_days=DEFAULT_HISTORY_DAYS)]
+            else [
+                CodexAdapter(max_age_days=DEFAULT_HISTORY_DAYS),
+                ClaudeAdapter(max_age_days=DEFAULT_HISTORY_DAYS),
+                CursorAdapter(max_age_days=DEFAULT_HISTORY_DAYS),
+            ]
         )
         self.root = root
         self.tail_bytes = tail_bytes
@@ -808,11 +813,21 @@ class SessionHub:
         self._lock = threading.RLock()
 
     @classmethod
-    def for_codex_home(cls, codex_home: Path, *, scan_ttl: float = 3.0, claude_home: Path | None = None) -> SessionHub:
-        """Codex catalog hub; `claude_home` also registers Claude Code sessions (adapter mode only)."""
+    def for_codex_home(
+        cls,
+        codex_home: Path,
+        *,
+        scan_ttl: float = 3.0,
+        claude_home: Path | None = None,
+        cursor_home: Path | None = None,
+        cursor_user_dir: Path | None = None,
+    ) -> SessionHub:
+        """Codex catalog hub; `claude_home` / `cursor_home` also register those harnesses' sessions."""
         adapters: list[HarnessAdapter] = [CodexAdapter(home=codex_home)]
         if claude_home is not None:
             adapters.append(ClaudeAdapter(home=claude_home))
+        if cursor_home is not None:
+            adapters.append(CursorAdapter(home=cursor_home, user_dir=cursor_user_dir))
         return cls(
             adapters,
             root=codex_home,

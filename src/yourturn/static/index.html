@@ -118,7 +118,7 @@ SOFTWARE.
     </nav>
     <div class="compact-filter"><label for="compact-status">Chats</label><select id="compact-status" aria-label="Filter chats by status"><option value="">All chats</option><option value="waiting">Needs you</option><option value="working">Working</option><option value="new">New results</option><option value="earlier">Earlier</option></select></div>
     </header>
-    <p class="empty card" id="inbox-empty" hidden>No Codex chats found in <code>~/.codex/sessions</code>. Start a chat in Codex and it appears here.</p>
+    <p class="empty card" id="inbox-empty" hidden>No agent chats found. Start a chat in Codex, Claude Code or Cursor and it appears here.</p>
     <p class="empty card" id="filter-empty" role="status" hidden></p>
     <div class="sections" id="sections"></div>
   </div>
@@ -237,7 +237,7 @@ SOFTWARE.
 </dialog>
 <dialog class="preferences-dialog" id="help" aria-labelledby="help-title">
   <header class="dialog-heading"><h2 id="help-title">Help</h2><button type="button" class="button" data-close-dialog>Close</button></header>
-  <p class="help-intro">Read chat recaps here. Choose <strong>Open in Codex</strong> to reply or take action.</p>
+  <p class="help-intro">Read chat recaps here. Choose <strong>Open in Codex</strong> or <strong>Open in Cursor</strong> (for Claude Code, <strong>Copy resume command</strong>) to reply or take action.</p>
   <table class="help-statuses">
     <caption>Chat statuses</caption>
     <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>

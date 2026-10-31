@@ -1,4 +1,4 @@
-"""Loopback-only Your Turn server: an inbox of agent chats (Codex, Claude Code) and a per-turn summary of each."""
+"""Loopback-only Your Turn server: an inbox of agent chats (Codex, Claude Code, Cursor) and a per-turn summary of each."""
 
 from __future__ import annotations
 
@@ -35,10 +35,11 @@ def _static(name: str) -> str:
 def create_app(
     codex_home: Path, poll_seconds: float = POLL_SECONDS, should_stop: Callable[[], bool] = lambda: False,
     history_days: int = DEFAULT_HISTORY_DAYS, claude_home: Path | None = None,
+    cursor_home: Path | None = None, cursor_user_dir: Path | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Your Turn", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOOPBACK_HOSTS)
-    hub = SessionHub.for_codex_home(codex_home, claude_home=claude_home)
+    hub = SessionHub.for_codex_home(codex_home, claude_home=claude_home, cursor_home=cursor_home, cursor_user_dir=cursor_user_dir)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Response:
@@ -62,7 +63,7 @@ def create_app(
             raise HTTPException(status_code=400, detail="thread must be a session key or Codex thread id") from None
         if key.harness not in served:
             raise HTTPException(status_code=404, detail="no session source for this harness")
-        # Codex thread ids and Claude Code session ids are both UUIDs.
+        # Codex thread ids, Claude Code session ids and Cursor composer ids are all UUIDs.
         if not UUID.match(key.native_id):
             raise HTTPException(status_code=400, detail="thread must be a session key or Codex thread id")
         return key
