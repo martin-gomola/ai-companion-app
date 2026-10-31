@@ -115,7 +115,8 @@ for their own sake, are out of scope.
   right. Below it, a large title (the chat name) and a meta row with fixed slots in a fixed order,
   each shown only when known: the agent pill (Codex, Claude Code, Cursor; the same pill as inbox
   rows, full app name here), project (full path on hover), recorded Git branch, and the time of the
-  last recorded event. Text slots are dot-separated with the dot trailing its item, so a wrapped
+  last recorded event. Items align on the text baseline (not box center), so the smaller pill
+  text sits on the same line. Text slots are dot-separated with the dot trailing its item, so a wrapped
   line never starts with a separator. New metadata joins this row as another slot. The wide-screen
   pane header uses the same row.
 - The status card comes first. Its header shows the status glyph and label and the chat's action:
