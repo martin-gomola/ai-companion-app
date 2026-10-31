@@ -250,7 +250,7 @@ function renderRow(chat) {
   body.append(description);
   if (state === "waiting" && chat.question && chat.options?.length) body.append(el("span", "row-options", chat.options.join(" · ")));
   const project = el("span", "row-project");
-  if (HARNESS_LABEL[chat.harness]) project.append(el("span", "row-harness", HARNESS_LABEL[chat.harness]));
+  if (HARNESS_LABEL[chat.harness]) project.append(el("span", "harness-pill", HARNESS_LABEL[chat.harness]));
   project.append(el("span", "", projectName(chat)));
   project.title = projectName(chat);
   const chevron = icon("i-chevron");
@@ -984,6 +984,26 @@ function renderTimeline(thread) {
   }));
 }
 
+// The chat header's meta row: fixed slots in a fixed order (agent, project, branch, last event),
+// each shown only when known, so every chat page reads the same way.
+function metaItems(thread) {
+  const items = [];
+  if (APP_NAME[thread.harness]) {
+    const pill = el("span", "harness-pill", appName(thread));
+    pill.title = `Chat from ${appName(thread)}`;
+    items.push(pill);
+  }
+  const item = (text, title) => {
+    const node = el("span", "meta-item", text);
+    if (title) node.title = title;
+    return node;
+  };
+  items.push(item(projectName(thread), thread.cwd));
+  if (thread.git_branch) items.push(item(thread.git_branch, "Recorded Git branch"));
+  items.push(item(ago(thread.updated_at), "Last recorded event"));
+  return items;
+}
+
 function renderThread(thread) {
   const title = threadId ? $("title") : $("panel-title");
   const openingPanel = !threadId && title.textContent === "Loading…";
@@ -1009,8 +1029,7 @@ function renderThread(thread) {
   title.textContent = chatName(thread);
   if (threadId) document.title = `${chatName(thread)} · Your Turn`;
   subtitle.hidden = false;
-  subtitle.textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
-  subtitle.title = `${thread.cwd} · last recorded event`;
+  subtitle.replaceChildren(...metaItems(thread));
   $("more").hidden = false;
   renderStatus(thread, turn);
   renderChanges(thread, turn);

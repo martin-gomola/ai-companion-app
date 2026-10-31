@@ -112,8 +112,12 @@ for their own sake, are out of scope.
 ## Chat page
 
 - A sticky row with the back link on the left and the same live-state and theme group on the
-  right. Below it, a large title (the chat name)
-  and a subtitle with the project and the time of the last recorded event.
+  right. Below it, a large title (the chat name) and a meta row with fixed slots in a fixed order,
+  each shown only when known: the agent pill (Codex, Claude Code, Cursor; the same pill as inbox
+  rows, full app name here), project (full path on hover), recorded Git branch, and the time of the
+  last recorded event. Text slots are dot-separated with the dot trailing its item, so a wrapped
+  line never starts with a separator. New metadata joins this row as another slot. The wide-screen
+  pane header uses the same row.
 - The status card comes first. Its header shows the status glyph and label and the chat's action:
   "Open in Codex" (deep link), "Copy resume command" for Claude Code (copies `claude --resume <id>`
   and briefly confirms), or "Open in Cursor" (opens the project folder). It is the only filled accent button on the page, and it is filled only when the chat

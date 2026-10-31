@@ -37,6 +37,12 @@ a { color: var(--color-accent); }
 .top { display: grid; gap: var(--space-1); }
 h1 { font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: var(--leading-tight); overflow-wrap: break-word; hyphens: auto; }
 .subtitle { color: var(--color-text-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+/* Chat header meta row: agent pill, then dot-separated project, branch and last event. */
+.subtitle:has(.meta-item) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+/* The dot trails its item, so a wrapped line never starts with a separator. */
+.meta-item:not(:last-child)::after { content: "·"; margin-inline-start: var(--space-2); }
+/* Which app a chat belongs to; the same pill in inbox rows and chat headers. */
+.harness-pill { flex: none; padding: 0 var(--space-1); border-radius: var(--radius-sm); box-shadow: var(--edge); color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.6; }
 .back {
   display: inline-flex; align-items: center; gap: var(--space-1);
   min-height: var(--size-control); padding-inline: var(--space-2) var(--space-4); border-radius: var(--radius-md);
@@ -440,7 +446,7 @@ body[data-panel="open"] #sections .group[data-section="waiting"] { margin-inline
 .row-tags .tag { font-size: var(--text-label); }
 .row-project { display: flex; align-items: center; min-width: 0; color: var(--color-text-muted); font-size: var(--text-preview); }
 .row-project > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row-project > .row-harness { flex: none; margin-right: var(--space-2); padding: 0 var(--space-1); border-radius: var(--radius-sm); box-shadow: var(--edge); font-size: var(--text-label); }
+.row-project > .harness-pill { margin-inline-end: var(--space-2); }
 .row-time { color: var(--color-text-muted); font-size: var(--text-preview); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .row-chevron { color: var(--color-text); width: 20px; height: 20px; }
 .row:hover, .row:active { background: var(--color-surface-pressed); }
