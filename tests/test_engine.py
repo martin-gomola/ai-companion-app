@@ -325,7 +325,7 @@ DECISION_KEYS = {"at", "source", "question", "options", "chosen", "reason", "tur
 EXTRA_KEYS = {"harness", "key", "handoff"}
 
 
-def _rich_records() -> list[dict[str, Any]]:
+def _rich_records(chosen: str = "patch") -> list[dict[str, Any]]:
     """Turn 1 completes (failed then passing check, code edit, agent decision, final answer, usage);
     turn 2 asks the user a question and waits; turn 3 is aborted."""
     meta = {
@@ -334,7 +334,7 @@ def _rich_records() -> list[dict[str, Any]]:
         "payload": {"id": SID, "cwd": "/work/repo", "timestamp": _ts(0), "cli_version": "0.50.0",
                     "model_provider": "openai", "git": {"branch": "main"}},
     }
-    decision = {"question": "Patch or rewrite?", "options": ["patch", "rewrite"], "chosen": "patch", "reason": "Smaller diff"}
+    decision = {"question": "Patch or rewrite?", "options": ["patch", "rewrite"], "chosen": chosen, "reason": "Smaller diff"}
     usage = {
         "total_token_usage": {"input_tokens": 100, "cached_input_tokens": 40, "output_tokens": 20, "total_tokens": 120},
         "last_token_usage": {"total_tokens": 60},
@@ -441,6 +441,16 @@ def test_detail_dict_keys_and_values(tmp_path: Path) -> None:
     agent, asked = data["decisions"]
     assert (agent["source"], agent["chosen"], agent["reason"], agent["turn"]) == ("agent", "patch", "Smaller diff", 1)
     assert (asked["source"], asked["question"], asked["options"], asked["chosen"]) == ("asked", "Ship now?", ["Yes", "No"], None)
+
+
+def test_detail_dict_keeps_full_long_decision_answer(tmp_path: Path) -> None:
+    chosen = "Keep the full decision text visible after expanding. " * 4
+    _write(tmp_path, SID, _rich_records(chosen=chosen))
+
+    data = SessionHub.for_codex_home(tmp_path, scan_ttl=0).detail_dict(SID)
+
+    assert data is not None
+    assert data["decisions"][0]["chosen"] == " ".join(chosen.split())
 
 
 def test_sessions_facade_returns_hub_dicts(tmp_path: Path) -> None:

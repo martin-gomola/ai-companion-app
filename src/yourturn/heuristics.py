@@ -43,8 +43,12 @@ FINAL_ASKS = (
 FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 
 
+def normalize_text(text: str) -> str:
+    return " ".join(MARKDOWN_EMPHASIS.sub("", text).split())
+
+
 def clip(text: str, limit: int = MAX_TEXT) -> str:
-    text = " ".join(MARKDOWN_EMPHASIS.sub("", text).split())
+    text = normalize_text(text)
     return text if len(text) <= limit else f"{text[: limit - 1]}…"
 
 

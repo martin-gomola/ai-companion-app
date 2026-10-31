@@ -266,5 +266,26 @@ SOFTWARE.
     </details>
   </div>
 </section>
+<dialog class="decision-dialog" id="decision-dialog" aria-labelledby="decision-dialog-title">
+  <header class="decision-dialog-header">
+    <h2 id="decision-dialog-title" tabindex="-1">Full decision</h2>
+    <button type="button" class="button" id="decision-dialog-close">Close</button>
+  </header>
+  <div class="decision-dialog-content">
+    <section class="decision-dialog-section" id="decision-dialog-question-wrap">
+      <h3>Question</h3><p id="decision-dialog-question"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-answer-wrap">
+      <h3>Answer</h3><p class="decision-dialog-answer" id="decision-dialog-answer"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-reason-wrap" hidden>
+      <h3>Reason</h3><p id="decision-dialog-reason"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-options-wrap" hidden>
+      <h3 id="decision-dialog-options-title">Other options</h3><ul class="decision-dialog-options" id="decision-dialog-options"></ul>
+    </section>
+  </div>
+  <p class="decision-dialog-meta" id="decision-dialog-meta"></p>
+</dialog>
 </body>
 </html>

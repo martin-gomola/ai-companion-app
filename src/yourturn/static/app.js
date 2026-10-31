@@ -942,18 +942,57 @@ function decisionPreview(text) {
   return `${preview.slice(0, boundary > DECISION_ANSWER_PREVIEW_LIMIT * 0.75 ? boundary : preview.length).trimEnd()}…`;
 }
 
+function positionDecisionOptions(popover, trigger) {
+  const style = getComputedStyle(document.documentElement);
+  const inset = Number.parseFloat(style.getPropertyValue("--space-3"));
+  const gap = Number.parseFloat(style.getPropertyValue("--space-2"));
+  const edge = Number.isFinite(inset) ? inset : 0;
+  const spacing = Number.isFinite(gap) ? gap : 0;
+  const anchor = trigger.getBoundingClientRect();
+  const panel = popover.getBoundingClientRect();
+  const left = Math.max(edge, Math.min(anchor.left, window.innerWidth - edge - panel.width));
+  const below = anchor.bottom + spacing;
+  const top = below + panel.height <= window.innerHeight - edge
+    ? below
+    : Math.max(edge, anchor.top - spacing - panel.height);
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+}
+
+function showFullDecision({ question, answer, reason, options, meta }) {
+  $("decision-dialog-question-wrap").hidden = !question;
+  $("decision-dialog-question").textContent = question;
+  $("decision-dialog-answer-wrap").hidden = !answer;
+  $("decision-dialog-answer").textContent = answer;
+  $("decision-dialog-reason-wrap").hidden = !reason;
+  $("decision-dialog-reason").textContent = reason;
+  $("decision-dialog-options-wrap").hidden = options.length === 0;
+  $("decision-dialog-options-title").textContent = `${answer ? "Other options" : "Options"} (${options.length})`;
+  $("decision-dialog-options").replaceChildren(...options.map((option) => el("li", "", option)));
+  $("decision-dialog-meta").textContent = meta;
+  $("decision-dialog").showModal();
+  $("decision-dialog-title").focus({ preventScroll: true });
+}
+
+$("decision-dialog-close").addEventListener("click", () => $("decision-dialog").close());
+$("decision-dialog").addEventListener("keydown", (event) => {
+  // Let the native dialog handle Escape without also closing the chat-detail panel.
+  if (event.key === "Escape") event.stopPropagation();
+});
+$("decision-dialog").addEventListener("click", (event) => {
+  if (event.target === $("decision-dialog")) $("decision-dialog").close();
+});
+
 function renderDecisions(thread) {
   const decisions = thread.decisions.map((decision, index) => ({ decision, key: JSON.stringify([decision.at, decision.turn, decision.source, decision.question, index]) })).filter(({ decision }) => decision.chosen !== null).reverse();
   const existing = new Map([...$("decisions-wrap").querySelectorAll(".decision")].map((item) => [item.dataset.key, item]));
   const focused = document.activeElement.closest(".decision");
   const focusedKey = focused?.dataset.key;
   $("decisions-wrap").hidden = decisions.length === 0;
-  const items = decisions.map(({ decision, key }) => {
+  const items = decisions.map(({ decision, key }, index) => {
     const item = existing.get(key) || el("li", "list-row decision");
     const record = JSON.stringify(decision);
     if (item.dataset.record === record) return item;
-    const alternativesExpanded = item.querySelector(".decision-alternatives")?.open || false;
-    const answerExpanded = item.querySelector(".decision-full-answer")?.open || false;
     item.dataset.key = key;
     item.dataset.record = record;
     const at = new Date(decision.at);
@@ -966,32 +1005,69 @@ function renderDecisions(thread) {
     if (answer) context.title = decision.question;
     const meta = el("p", "decision-meta");
     meta.append(el("span", "decision-role", decision.source === "agent" ? "Agent" : "You"), ...(when ? [` · ${when}`] : []));
-    let answerDisclosure = null;
-    if (longAnswer) {
-      answerDisclosure = el("details", "decision-full-answer");
-      answerDisclosure.open = answerExpanded;
-      const summary = el("summary");
-      const chevron = icon("i-chevron");
-      chevron.classList.add("disclosure-chevron");
-      summary.append(el("span", "decision-show-full", "Show full decision"), el("span", "decision-show-less", "Show less"), chevron);
-      answerDisclosure.append(summary, el("p", "decision-answer-full", answer));
-    }
     const alternatives = answer ? decision.options.filter((option) => option !== decision.chosen) : decision.options;
+    const answerAction = longAnswer ? el("button", "decision-full-button", "Show full decision") : null;
+    answerAction?.addEventListener("click", () => showFullDecision({
+      question: decision.question,
+      answer,
+      reason: decision.reason || "",
+      options: alternatives,
+      meta: meta.textContent,
+    }));
     const footer = el("div", "decision-footer");
+    const actions = el("div", "decision-actions");
     if (alternatives.length) {
-      const disclosure = el("details", "decision-alternatives");
-      disclosure.open = alternativesExpanded;
-      const summary = el("summary");
-      const chevron = icon("i-chevron");
-      chevron.classList.add("disclosure-chevron");
-      summary.append(el("span", "", `${answer ? "Other options" : "Options"} (${alternatives.length})`), chevron);
+      const popoverId = `decision-options-${index}`;
+      const optionsButton = el("button", "decision-options-button", `View options (${alternatives.length})`);
+      optionsButton.type = "button";
+      optionsButton.setAttribute("aria-haspopup", "true");
+      optionsButton.setAttribute("aria-expanded", "false");
+      optionsButton.setAttribute("aria-controls", popoverId);
+      const popover = el("div", "decision-options-popover");
+      popover.id = popoverId;
+      popover.setAttribute("popover", "auto");
+      popover.setAttribute("role", "region");
+      const heading = el("h3", "decision-options-heading", `Other options (${alternatives.length})`);
+      heading.id = `${popoverId}-title`;
+      popover.setAttribute("aria-labelledby", heading.id);
+      popover.tabIndex = -1;
       const options = el("ul", "decision-other-options");
       options.replaceChildren(...alternatives.map((option) => el("li", "", option)));
-      disclosure.append(summary, options);
-      footer.append(disclosure);
+      popover.append(heading, options);
+      const reposition = () => positionDecisionOptions(popover, optionsButton);
+      optionsButton.addEventListener("click", () => {
+        if (popover.matches(":popover-open")) {
+          popover.hidePopover();
+          return;
+        }
+        popover.showPopover();
+        reposition();
+        popover.focus({ preventScroll: true });
+      });
+      actions.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !popover.matches(":popover-open")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        popover.hidePopover();
+        optionsButton.focus({ preventScroll: true });
+      }, { capture: true });
+      popover.addEventListener("toggle", (event) => {
+        const isOpen = event.newState === "open";
+        optionsButton.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) {
+          window.addEventListener("resize", reposition);
+          document.addEventListener("scroll", reposition, true);
+        } else {
+          window.removeEventListener("resize", reposition);
+          document.removeEventListener("scroll", reposition, true);
+          if (popover.contains(document.activeElement)) optionsButton.focus({ preventScroll: true });
+        }
+      });
+      actions.append(optionsButton, popover);
     }
-    footer.append(meta);
-    item.replaceChildren(lead, ...(answerDisclosure ? [answerDisclosure] : []), context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), footer);
+    if (answerAction) actions.append(answerAction);
+    footer.append(actions, meta);
+    item.replaceChildren(lead, context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), footer);
     return item;
   });
   const older = items.slice(DECISION_PREVIEW_LIMIT);

@@ -175,14 +175,18 @@ for their own sake, are out of scope.
   record command results.
 - Commands and paths use mono and wrap. Command highlighting (executable, path, flag, string,
   operator) is a presentation hint, not shell parsing; every character stays selectable inert text.
-- Decisions, as grouped rows: the question, the recorded answer labelled Agent decision or Your
-  answer, a collapsed Show full decision disclosure for long answers, the optional reason, and a footer with the collapsed Other options disclosure on the left
-  and recorded turn and local time on the right when available. The disclosure must not resemble
-  choice buttons; on narrow cards, metadata wraps below it and stays right-aligned. When the app recorded that a
-  question was answered but not the answer (Cursor), the question leads, the context line reads
-  "Answered in Cursor; the answer was not recorded.", and the disclosure lists all Options (n). Three recent decisions show
-  directly; older ones sit behind a counted disclosure row. A pending question appears in the status
-  card, not here.
+- Decisions, as grouped rows: the chosen answer leads, followed by the question and optional reason.
+  A long answer has a short preview and a Show full decision action; recorded alternatives have a
+  View options action. Put both controls together in the footer, with agent/turn/time metadata
+  aligned at the end. View options opens an anchored popover so the list does not change card height;
+  Show full decision opens a modal with the complete question, answer, optional reason and
+  alternatives. The popover dismisses on Escape or an outside click and returns focus to its
+  trigger. Closing the modal with its button or Escape returns to the same card. When the app
+  recorded that a question was answered but
+  not the answer (Cursor), the question leads, the context line reads "Answered in Cursor; the answer
+  was not recorded.", and View options lists all Options (n) in the popover. Three recent decisions
+  show directly; older ones sit behind a counted disclosure row. A pending question appears in the
+  status card, not here.
 - What happened shows the latest `Recap:` (Chat so far) above the latest turn's outcome (Latest
   turn), each with a small label; with no recap it is the outcome alone, and while a turn runs it
   keeps showing the last recap.
