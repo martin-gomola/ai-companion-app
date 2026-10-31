@@ -6,6 +6,8 @@ function readPreference(key) {
 }
 const MAX_STEPS = 80;
 const SECTION_LIMIT = 10;
+const DECISION_ANSWER_PREVIEW_LIMIT = 120;
+const NEW_RESULT_BADGE_HIGHLIGHT_MS = 1400;
 const visibleRows = new Map();
 const sectionOpen = new Map();
 let revealed = "";
@@ -25,7 +27,17 @@ const STATUS = {
   dismissed: { label: "Reminder dismissed", icon: "i-question" },
 };
 const SECTION_ICONS = { waiting: "i-message-question", working: "i-working", new: "i-answer", earlier: "i-turn" };
-const QUIET_HINT = "No activity recorded. It may be waiting for your approval in Codex, or running a long command.";
+const APP_NAME = { codex: "Codex", claude: "Claude Code", cursor: "Cursor" };
+
+// Where the user acts on a chat; older payloads without `harness` are Codex chats.
+function appName(chat) {
+  return APP_NAME[chat?.harness] || APP_NAME.codex;
+}
+
+function quietHint(chat) {
+  if (chat.pending_tool) return `No activity recorded. Its last call has no result yet (${chat.pending_tool}): it may be waiting for your approval in ${appName(chat)}, or still running.`;
+  return `No activity recorded. It may be waiting for your approval in ${appName(chat)}, or running a long command.`;
+}
 const QUIET_NOTIFY_MS = 5 * 60 * 1000;
 const CHECK_TAGS = {
   failed: { label: "Check failed", className: "tag--interrupted" },
@@ -58,7 +70,10 @@ document.body.dataset.view = threadId ? "thread" : "inbox";
 if (threadId) $("nav-inbox").removeAttribute("aria-current");
 const wideDetail = matchMedia("(min-width: 1280px)");
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
+const WORKING_SPIN_PERIOD_MS = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--motion-status-working"));
 let inboxData = null;
+let previousNewResultsCount = null;
+let incomingBadgeTimer = null;
 let inboxLayout = "";
 let threadData = null;
 let filter = "key";
@@ -83,7 +98,7 @@ function icon(name) {
 
 // Every working glyph shares one phase, so live re-renders never restart the rotation.
 function syncSpin(use) {
-  use.style.animationDelay = `-${performance.now() % 1400}ms`;
+  use.style.animationDelay = `-${performance.now() % WORKING_SPIN_PERIOD_MS}ms`;
 }
 
 const ROW_ICONS = {
@@ -130,6 +145,17 @@ function ago(iso) {
 function chatName(chat) {
   return chat.title || `Untitled chat · ${chat.cwd.split("/").pop() || chat.id.slice(0, 8)}`;
 }
+
+// The full `<harness>:<id>` key routes any harness; older payloads only had the Codex id.
+function chatKey(chat) {
+  return chat.key || chat.id;
+}
+
+function isChat(chat, id) {
+  return id === chatKey(chat) || id === chat.id;
+}
+
+const HARNESS_LABEL = { codex: "Codex", claude: "Claude", cursor: "Cursor" };
 
 function projectName(chat) {
   return chat.project || chat.cwd.split("/").pop() || "Unassigned";
@@ -195,11 +221,11 @@ function renderRow(chat) {
   const unread = isNewResult(chat);
   const item = el("li");
   const link = el("a", "row");
-  link.href = `/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`;
+  link.href = `/?thread=${encodeURIComponent(chatKey(chat))}${inboxReturn}`;
   link.dataset.status = state;
-  link.dataset.id = chat.id;
+  link.dataset.id = chatKey(chat);
   link.dataset.unread = String(unread);
-  if (chat.id === openId) link.setAttribute("aria-current", "true");
+  if (isChat(chat, openId)) link.setAttribute("aria-current", "true");
   const glyph = el("span", "glyph");
   glyph.append(icon(status.icon));
   if (state === "working") syncSpin(glyph.querySelector("use"));
@@ -218,7 +244,7 @@ function renderRow(chat) {
   if (state === "working" && chat.quiet) {
     const quiet = el("span", "tag tag--waiting", `Quiet ${quietFor(chat)}`);
     quiet.dataset.quietAt = chat.updated_at;
-    quiet.title = QUIET_HINT;
+    quiet.title = quietHint(chat);
     meta.append(quiet);
   } else if (tag) meta.append(el("span", `tag tag--${state}`, tag));
   if (unread && sectionOf(chat) !== "new") meta.append(el("span", "tag tag--new", "New"));
@@ -230,7 +256,10 @@ function renderRow(chat) {
   body.append(description);
   if (state === "waiting" && chat.question && chat.options?.length) body.append(el("span", "row-options", chat.options.join(" · ")));
   const project = el("span", "row-project");
-  project.append(el("span", "", projectName(chat)));
+  if (HARNESS_LABEL[chat.harness]) project.append(el("span", "harness-pill", HARNESS_LABEL[chat.harness]));
+  const projectIcon = icon("i-workspace");
+  projectIcon.classList.add("project-icon");
+  project.append(projectIcon, el("span", "project-name", projectName(chat)));
   project.title = projectName(chat);
   const chevron = icon("i-chevron");
   chevron.classList.add("row-chevron");
@@ -358,7 +387,7 @@ function renderInbox(chats) {
   // once it has been shown open it stays open, so a new chat never folds the list under the reader.
   const foldable = !inboxStatus && shown.length > 1;
   if (!foldable && groups.get("earlier").length > 0 && !sectionOpen.has("earlier")) sectionOpen.set("earlier", true);
-  const openKey = shown.find(({ key }) => groups.get(key).some((chat) => chat.id === openId))?.key;
+  const openKey = shown.find(({ key }) => groups.get(key).some((chat) => isChat(chat, openId)))?.key;
   if (openKey && revealed !== `${openId}:${openKey}`) {
     revealed = `${openId}:${openKey}`;
     sectionOpen.set(openKey, true);
@@ -377,6 +406,9 @@ function renderInbox(chats) {
 
 function syncNavigation(chats) {
   const groups = groupChats(chats);
+  const newResultsCount = groups.get("new").length;
+  const newResultsArrived = previousNewResultsCount !== null && newResultsCount > previousNewResultsCount;
+  previousNewResultsCount = newResultsCount;
   const selector = $("compact-status");
   for (const option of selector.options) {
     const kind = option.value;
@@ -389,7 +421,15 @@ function syncNavigation(chats) {
     segment.href = inboxUrl(kind, threadId ? "" : openId);
     const count = kind ? groups.get(kind).length : chats.length;
     segment.dataset.empty = String(count === 0);
-    segment.querySelector(".segment-count").textContent = count;
+    const badge = segment.querySelector(".segment-count");
+    badge.textContent = count;
+    if (kind === "new" && newResultsArrived) {
+      badge.classList.remove("is-incoming");
+      void badge.offsetWidth;
+      badge.classList.add("is-incoming");
+      clearTimeout(incomingBadgeTimer);
+      incomingBadgeTimer = setTimeout(() => badge.classList.remove("is-incoming"), NEW_RESULT_BADGE_HIGHLIGHT_MS);
+    }
     const label = kind ? INBOX_FILTERS[kind].label : "All recent chats";
     segment.setAttribute("aria-label", `${label}: ${count} ${count === 1 ? "chat" : "chats"}`);
     if (kind === inboxStatus) segment.setAttribute("aria-current", "page");
@@ -428,7 +468,7 @@ function alertOf(chat) {
   if (needsAttention(chat)) return { key: `need:${chat.attention_key || chat.turn_ended_at}`, title: `Needs you: ${chatName(chat)}`, body: chatSummary(chat) || "" };
   // Long builds also go quiet, so quiet chats notify later than they are tagged.
   if (chat.status === "working" && chat.quiet && Date.now() - new Date(chat.updated_at).getTime() > QUIET_NOTIFY_MS) {
-    return { key: `quiet:${chat.updated_at}`, title: `Quiet ${quietFor(chat)}: ${chatName(chat)}`, body: QUIET_HINT };
+    return { key: `quiet:${chat.updated_at}`, title: `Quiet ${quietFor(chat)}: ${chatName(chat)}`, body: quietHint(chat) };
   }
   return null;
 }
@@ -444,9 +484,9 @@ function notifyChanges(chats) {
         window.focus();
         notice.close();
         if (wideDetail.matches && !threadId) {
-          history.pushState(null, "", inboxUrl(inboxStatus, chat.id));
-          showPanel(chat.id);
-        } else location.assign(`/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`);
+          history.pushState(null, "", inboxUrl(inboxStatus, chatKey(chat)));
+          showPanel(chatKey(chat));
+        } else location.assign(`/?thread=${encodeURIComponent(chatKey(chat))}${inboxReturn}`);
       };
     }
   }
@@ -469,6 +509,25 @@ async function copyThreadId() {
   }
 }
 $("copy-thread-id").addEventListener("click", copyThreadId);
+
+$("open-codex").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const command = button.dataset.copy;
+  if (!command) return;
+  event.preventDefault();
+  const text = button.firstChild;
+  try {
+    await navigator.clipboard.writeText(command);
+    button.dataset.copied = "true";
+    text.textContent = "Resume command copied";
+  } catch {
+    text.textContent = command;  // Shown so it can be selected and copied by hand.
+  }
+  setTimeout(() => {
+    delete button.dataset.copied;
+    if (button.dataset.copy === command) text.textContent = "Copy resume command";
+  }, 2000);
+});
 
 function renderSessionInfo(thread, turn) {
   if ($("session-thread-id").textContent !== thread.id) {
@@ -528,12 +587,36 @@ function renderSessionInfo(thread, turn) {
   }));
 }
 
+function numberedNextSteps(text) {
+  const prefix = text.match(/^(Next steps for you:)\s*1\.\s+/i);
+  if (!prefix) return null;
+  const body = text.slice(prefix[0].length);
+  const markers = [...body.matchAll(/(?:^|\s)(\d+)\.\s+/g)];
+  if (!markers.length) return null;
+  const steps = [body.slice(0, markers[0].index).trim()];
+  for (let index = 0; index < markers.length; index++) {
+    const marker = markers[index];
+    if (Number(marker[1]) !== index + 2) return null;
+    const start = marker.index + marker[0].length;
+    const end = markers[index + 1]?.index ?? body.length;
+    steps.push(body.slice(start, end).trim());
+  }
+  return steps.some((step) => !step) ? null : { label: prefix[1], steps };
+}
+
 function setStatusText(content, command = false) {
   const target = $("status-text");
   const text = typeof content === "string" ? content : "";
+  const structured = command ? null : numberedNextSteps(text);
   // Leave the selected text untouched when an unrelated value changes.
-  if (target.textContent === text && Boolean(target.querySelector("code")) === command) return;
-  target.replaceChildren(command ? commandCode(text) : el("p", "", text));
+  if ((target.dataset.sourceText ?? target.textContent) === text && Boolean(target.querySelector("code")) === command) return;
+  target.dataset.sourceText = text;
+  if (command) target.replaceChildren(commandCode(text));
+  else if (structured) {
+    const list = el("ol", "status-steps");
+    list.append(...structured.steps.map((step) => el("li", "", step)));
+    target.replaceChildren(el("p", "status-steps-label", structured.label), list);
+  } else target.replaceChildren(el("p", "", text));
 }
 
 function renderStatus(thread, turn) {
@@ -545,11 +628,22 @@ function renderStatus(thread, turn) {
   $("status-card").dataset.quiet = String(quiet);
   $("status-icon").setAttribute("href", `#${status.icon}`);
   if (state === "working") syncSpin($("status-icon"));
-  $("status-title").textContent = quiet ? "Working · quiet" : status.label;
+  // A waiting request says how long it has waited, so a fresh ask and a stale one read differently.
+  const waited = state === "waiting" ? ago(turn?.ended_at || thread.updated_at) : "";
+  $("status-title").textContent = quiet ? "Working · quiet" : waited && waited !== "just now" ? `${status.label} · ${waited}` : status.label;
   const failed = thread.status !== "working" && Boolean(turn?.checks.some((check) => check.exit_code !== null && check.exit_code !== 0));
-  $("open-codex").href = `codex://threads/${encodeURIComponent(thread.id)}`;
-  $("open-codex").hidden = false;
-  $("open-codex").dataset.emphasis = state === "waiting" || failed ? "" : "quiet";
+  // Codex and Cursor open by deep link (Cursor: the project folder); Claude Code offers its resume command.
+  const resume = thread.harness === "claude" ? thread.handoff?.resume_command || "" : "";
+  const link = thread.harness === "cursor" ? thread.handoff?.open_uri || "" : `codex://threads/${encodeURIComponent(thread.id)}`;
+  const action = resume ? "Copy resume command" : `Open in ${appName(thread)}`;
+  // Keep "Resume command copied" visible until its timeout restores the label.
+  if (!$("open-codex").dataset.copied) $("open-codex").firstChild.textContent = action;
+  $("open-codex").dataset.copy = resume;
+  $("open-codex").href = resume ? "#" : link;
+  $("open-codex").setAttribute("aria-label", resume ? `${action}: ${resume}` : thread.harness === "cursor" ? "Open the project in Cursor" : "Open in Codex (full chat)");
+  $("open-codex").title = resume;
+  $("open-codex").hidden = !resume && !link;
+  $("open-action-icon").setAttribute("href", resume ? "#i-copy" : "#i-external");
   $("status-body").hidden = false;
 
   const pending = [...thread.decisions].reverse().find((d) => d.source === "asked" && d.chosen === null);
@@ -576,11 +670,24 @@ function renderStatus(thread, turn) {
   } else {
     setStatusText(turn.next_text);
   }
+  // An approval request names no step, so show the latest recorded one, and only while its turn is
+  // still open: a turn that already ended has nothing left to approve, whatever the app reports.
+  const lastStep = turn?.next_kind === "approve" && !turn.ended_at
+    ? [...thread.steps].reverse().find((step) => step.turn === turn.index && ["command", "tool", "edit"].includes(step.kind))
+    : null;
+  $("pending-step").hidden = !lastStep;
+  if (lastStep) {
+    const text = lastStep.kind === "edit" ? `${lastStep.title}: ${lastStep.detail}` : lastStep.title;
+    if ($("pending-step-text").textContent !== text) $("pending-step-text").replaceChildren(lastStep.kind === "command" ? commandCode(text) : el("p", "", text));
+  }
   $("status-body").dataset.kind = kind;
   $("status-body").dataset.check = failed && (kind === "none" || kind === "unknown") ? "failed" : "";
-  const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${QUIET_HINT.replace(/^No activity recorded\. /, "")}` : "";
+  const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${quietHint(thread).replace(/^No activity recorded\. /, "")}` : "";
   $("quiet-note").hidden = !quiet;
   if ($("quiet-note").textContent !== quietNote) $("quiet-note").textContent = quietNote;
+  // One headline per request: drop the kind label when the request already starts with it
+  // ("Approve" above "Approve pending action in Cursor").
+  if (label && $("status-text").textContent.trim().toLowerCase().startsWith(label.toLowerCase())) label = "";
   $("next-kind").hidden = !label;
   $("next-kind").textContent = label;
   const options = pending && thread.status !== "working" ? pending.options : [];
@@ -592,7 +699,7 @@ function renderStatus(thread, turn) {
   $("reminder-toggle").setAttribute("aria-label", dismissed ? "Restore reminder" : "Dismiss reminder");
   $("reminder-toggle").title = dismissed ? "Restore reminder" : "Dismiss reminder (this browser only; does not answer the request)";
   $("reminder-icon").setAttribute("href", dismissed ? "#i-bell" : "#i-bell-off");
-  $("reminder-note").textContent = dismissed ? "Only in this browser. The request is still open in Codex." : "";
+  $("reminder-note").textContent = dismissed ? `Only in this browser. The request is still open in ${appName(thread)}.` : "";
 
   const outcome = thread.status === "working" ? "" : turn?.outcome || "";
   const recap = thread.turns.findLast((each) => each.recap)?.recap || "";
@@ -642,9 +749,9 @@ function syncAppearance() {
 function syncSettingsNotifications() {
   const blocked = notifySupported && Notification.permission === "denied";
   $("notification-status").textContent = !notifySupported ? "This browser does not support desktop notifications here."
-    : blocked ? "Blocked in this browser’s site settings. Enable permission there to use notifications."
+    : blocked ? "Blocked in this browser’s site settings. Allow them there."
     : notifyOn() ? "On while a Your Turn tab is open." : "Off in this browser.";
-  $("settings-notify").disabled = !notifySupported || blocked;
+  $("settings-notify").hidden = !notifySupported || blocked;
   $("settings-notify").textContent = notifyOn() ? "Turn off notifications" : "Enable notifications";
 }
 
@@ -715,16 +822,32 @@ document.addEventListener("keydown", (event) => {
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 });
-for (const button of document.querySelectorAll("[data-dialog]")) {
-  const dialog = $(button.dataset.dialog);
-  button.addEventListener("click", () => {
-    closeNavigation(false);
-    syncAppearance(); syncSettingsNotifications();
-    dialog.showModal();
-  });
-  dialog.addEventListener("close", () => (drawer.matches ? $("menu-toggle") : button).focus());
+// Settings and Help dock beside the rail without a backdrop; on phones the panel covers the page instead.
+function showAside(name, restoreFocus = true) {
+  const current = document.body.dataset.aside || "";
+  for (const button of document.querySelectorAll("[data-aside]")) button.setAttribute("aria-expanded", String(button.dataset.aside === name));
+  for (const panel of document.querySelectorAll(".aside-panel")) panel.hidden = panel.id !== name;
+  if (name) document.body.dataset.aside = name;
+  else delete document.body.dataset.aside;
+  const covered = Boolean(name) && drawer.matches;
+  $("main-content").inert = covered;
+  document.querySelector(".bar").inert = covered;
+  if (name && name !== current) { syncAppearance(); syncSettingsNotifications(); $(`${name}-title`).focus(); }
+  else if (!name && current && restoreFocus) (drawer.matches ? $("menu-toggle") : document.querySelector(`[data-aside="${current}"]`)).focus();
 }
-for (const button of document.querySelectorAll("[data-close-dialog]")) button.addEventListener("click", () => button.closest("dialog").close());
+for (const button of document.querySelectorAll("[data-aside]")) button.addEventListener("click", () => {
+  closeNavigation(false);
+  showAside(document.body.dataset.aside === button.dataset.aside ? "" : button.dataset.aside);
+});
+for (const button of document.querySelectorAll("[data-close-aside]")) button.addEventListener("click", () => showAside(""));
+// Escape closes the panel only from inside it, so it never steals Escape from the chat pane beside it.
+document.addEventListener("keydown", (event) => {
+  const panel = document.body.dataset.aside && $(document.body.dataset.aside);
+  if (event.key !== "Escape" || !panel || !(drawer.matches || panel.contains(document.activeElement))) return;
+  event.preventDefault();
+  showAside("");
+});
+drawer.addEventListener("change", () => showAside(document.body.dataset.aside || "", false));
 
 // Prime both small local plates; CSS always selects art using the same pre-paint theme as the UI.
 if (!threadId) for (const theme of ["light", "dark"]) {
@@ -769,10 +892,12 @@ function relativePath(path, cwd) {
 function renderChanges(thread, turn) {
   const files = turn ? turn.files : [];
   const checks = turn ? turn.checks : [];
+  // Codex records exit codes; Claude Code only success or failure; Cursor records no results at all.
+  const exitCodes = thread.capabilities?.exit_codes !== false;
   let warning = "";
   if (turn && turn.edited_after_check) warning = "Files changed after the last check ran.";
   else if (files.length && !checks.length) warning = "No tests or linters ran after these edits.";
-  else if (checks.some((check) => check.exit_code === null)) warning = "Some checks have no recorded exit result.";
+  else if (checks.some((check) => check.exit_code === null)) warning = exitCodes ? "Some checks have no recorded exit result." : `${appName(thread)} doesn't record command results, so these checks show no outcome.`;
   $("checks-wrap").hidden = !warning && checks.length === 0;
   $("check-warning").hidden = !warning;
   $("check-warning-text").textContent = warning;
@@ -780,7 +905,9 @@ function renderChanges(thread, turn) {
     const state = check.exit_code === null ? "unknown" : check.exit_code === 0 ? "passed" : "failed";
     const item = el("li", "list-row check");
     item.dataset.state = state;
-    const result = state === "unknown" ? "Exit not reported" : state === "passed" ? "Passed" : `Failed (exit ${check.exit_code})`;
+    // Claude Code's 0/1 comes from is_error, not a real exit code, so it is not shown as one.
+    const failure = exitCodes ? `Failed (exit ${check.exit_code})` : "Failed";
+    const result = state === "unknown" ? (exitCodes ? "Exit not reported" : "Not recorded") : state === "passed" ? "Passed" : failure;
     item.append(icon(state === "unknown" ? "i-question" : state === "passed" ? "i-answer" : "i-alert"), commandCode(check.command), el("span", "check-result", result));
     return item;
   }));
@@ -809,40 +936,138 @@ function renderSessionFiles(thread, turn) {
   $("session-files").replaceChildren(...paths.map((path) => fileItem(path, thread.cwd)));
 }
 
+function decisionPreview(text) {
+  const preview = text.slice(0, DECISION_ANSWER_PREVIEW_LIMIT);
+  const boundary = preview.lastIndexOf(" ");
+  return `${preview.slice(0, boundary > DECISION_ANSWER_PREVIEW_LIMIT * 0.75 ? boundary : preview.length).trimEnd()}…`;
+}
+
+function positionDecisionOptions(popover, trigger) {
+  const style = getComputedStyle(document.documentElement);
+  const inset = Number.parseFloat(style.getPropertyValue("--space-3"));
+  const gap = Number.parseFloat(style.getPropertyValue("--space-2"));
+  const edge = Number.isFinite(inset) ? inset : 0;
+  const spacing = Number.isFinite(gap) ? gap : 0;
+  const anchor = trigger.getBoundingClientRect();
+  const panel = popover.getBoundingClientRect();
+  const left = Math.max(edge, Math.min(anchor.left, window.innerWidth - edge - panel.width));
+  const below = anchor.bottom + spacing;
+  const top = below + panel.height <= window.innerHeight - edge
+    ? below
+    : Math.max(edge, anchor.top - spacing - panel.height);
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+}
+
+function showFullDecision({ question, answer, reason, options, meta }) {
+  $("decision-dialog-question-wrap").hidden = !question;
+  $("decision-dialog-question").textContent = question;
+  $("decision-dialog-answer-wrap").hidden = !answer;
+  $("decision-dialog-answer").textContent = answer;
+  $("decision-dialog-reason-wrap").hidden = !reason;
+  $("decision-dialog-reason").textContent = reason;
+  $("decision-dialog-options-wrap").hidden = options.length === 0;
+  $("decision-dialog-options-title").textContent = `${answer ? "Other options" : "Options"} (${options.length})`;
+  $("decision-dialog-options").replaceChildren(...options.map((option) => el("li", "", option)));
+  $("decision-dialog-meta").textContent = meta;
+  $("decision-dialog").showModal();
+  $("decision-dialog-title").focus({ preventScroll: true });
+}
+
+$("decision-dialog-close").addEventListener("click", () => $("decision-dialog").close());
+$("decision-dialog").addEventListener("keydown", (event) => {
+  // Let the native dialog handle Escape without also closing the chat-detail panel.
+  if (event.key === "Escape") event.stopPropagation();
+});
+$("decision-dialog").addEventListener("click", (event) => {
+  if (event.target === $("decision-dialog")) $("decision-dialog").close();
+});
+
 function renderDecisions(thread) {
   const decisions = thread.decisions.map((decision, index) => ({ decision, key: JSON.stringify([decision.at, decision.turn, decision.source, decision.question, index]) })).filter(({ decision }) => decision.chosen !== null).reverse();
   const existing = new Map([...$("decisions-wrap").querySelectorAll(".decision")].map((item) => [item.dataset.key, item]));
   const focused = document.activeElement.closest(".decision");
   const focusedKey = focused?.dataset.key;
   $("decisions-wrap").hidden = decisions.length === 0;
-  const items = decisions.map(({ decision, key }) => {
+  const items = decisions.map(({ decision, key }, index) => {
     const item = existing.get(key) || el("li", "list-row decision");
     const record = JSON.stringify(decision);
     if (item.dataset.record === record) return item;
-    const expanded = item.querySelector("details")?.open || false;
     item.dataset.key = key;
     item.dataset.record = record;
     const at = new Date(decision.at);
     const when = [decision.turn ? `Turn ${decision.turn}` : "", Number.isNaN(at.getTime()) ? "" : at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · ");
-    const answer = (decision.chosen || "").replace(/^#+\s*/, "") || "No answer text recorded.";
-    const question = el("p", "decision-question", decision.question);
-    question.title = decision.question;
+    const answer = (decision.chosen || "").replace(/^#+\s*/, "");
+    // Without answer text the question is the only information, so it leads instead of a placeholder.
+    const longAnswer = answer.length > DECISION_ANSWER_PREVIEW_LIMIT;
+    const lead = el("p", "decision-answer-text", longAnswer ? decisionPreview(answer) : answer || decision.question);
+    const context = el("p", "decision-question", answer ? decision.question : `Answered in ${appName(thread)}; the answer was not recorded.`);
+    if (answer) context.title = decision.question;
     const meta = el("p", "decision-meta");
     meta.append(el("span", "decision-role", decision.source === "agent" ? "Agent" : "You"), ...(when ? [` · ${when}`] : []));
-    item.replaceChildren(el("p", "decision-answer-text", answer), question, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), meta);
-    const alternatives = decision.options.filter((option) => option !== decision.chosen);
+    const alternatives = answer ? decision.options.filter((option) => option !== decision.chosen) : decision.options;
+    const answerAction = longAnswer ? el("button", "decision-full-button", "Show full decision") : null;
+    answerAction?.addEventListener("click", () => showFullDecision({
+      question: decision.question,
+      answer,
+      reason: decision.reason || "",
+      options: alternatives,
+      meta: meta.textContent,
+    }));
+    const footer = el("div", "decision-footer");
+    const actions = el("div", "decision-actions");
     if (alternatives.length) {
-      const disclosure = el("details", "decision-alternatives");
-      disclosure.open = expanded;
-      const summary = el("summary");
-      const chevron = icon("i-chevron");
-      chevron.classList.add("disclosure-chevron");
-      summary.append(el("span", "", `Other options (${alternatives.length})`), chevron);
+      const popoverId = `decision-options-${index}`;
+      const optionsButton = el("button", "decision-options-button", `View options (${alternatives.length})`);
+      optionsButton.type = "button";
+      optionsButton.setAttribute("aria-haspopup", "true");
+      optionsButton.setAttribute("aria-expanded", "false");
+      optionsButton.setAttribute("aria-controls", popoverId);
+      const popover = el("div", "decision-options-popover");
+      popover.id = popoverId;
+      popover.setAttribute("popover", "auto");
+      popover.setAttribute("role", "region");
+      const heading = el("h3", "decision-options-heading", `Other options (${alternatives.length})`);
+      heading.id = `${popoverId}-title`;
+      popover.setAttribute("aria-labelledby", heading.id);
+      popover.tabIndex = -1;
       const options = el("ul", "decision-other-options");
       options.replaceChildren(...alternatives.map((option) => el("li", "", option)));
-      disclosure.append(summary, options);
-      item.append(disclosure);
+      popover.append(heading, options);
+      const reposition = () => positionDecisionOptions(popover, optionsButton);
+      optionsButton.addEventListener("click", () => {
+        if (popover.matches(":popover-open")) {
+          popover.hidePopover();
+          return;
+        }
+        popover.showPopover();
+        reposition();
+        popover.focus({ preventScroll: true });
+      });
+      actions.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !popover.matches(":popover-open")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        popover.hidePopover();
+        optionsButton.focus({ preventScroll: true });
+      }, { capture: true });
+      popover.addEventListener("toggle", (event) => {
+        const isOpen = event.newState === "open";
+        optionsButton.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) {
+          window.addEventListener("resize", reposition);
+          document.addEventListener("scroll", reposition, true);
+        } else {
+          window.removeEventListener("resize", reposition);
+          document.removeEventListener("scroll", reposition, true);
+          if (popover.contains(document.activeElement)) optionsButton.focus({ preventScroll: true });
+        }
+      });
+      actions.append(optionsButton, popover);
     }
+    if (answerAction) actions.append(answerAction);
+    footer.append(actions, meta);
+    item.replaceChildren(lead, context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), footer);
     return item;
   });
   const older = items.slice(DECISION_PREVIEW_LIMIT);
@@ -924,6 +1149,79 @@ function renderTimeline(thread) {
   }));
 }
 
+// The chat header's meta row: fixed slots in a fixed order (agent, project, branch, last event),
+// each shown only when known, so every chat page reads the same way.
+function metaItems(thread) {
+  const items = [];
+  if (APP_NAME[thread.harness]) {
+    const pill = el("span", "harness-pill", appName(thread));
+    pill.title = `Chat from ${appName(thread)}`;
+    items.push(pill);
+  }
+  const item = (text, title, iconName = "", monospaced = false) => {
+    const node = el("span", "meta-item");
+    if (iconName) {
+      const glyph = icon(iconName);
+      glyph.classList.add("meta-icon");
+      node.append(glyph);
+    }
+    node.append(el("span", monospaced ? "meta-value meta-value--mono" : "meta-value", text));
+    if (title) node.title = title;
+    return node;
+  };
+  items.push(item(projectName(thread), thread.cwd, "i-workspace", true));
+  if (thread.git_branch) items.push(item(thread.git_branch, "Recorded Git branch", "i-branch", true));
+  items.push(item(ago(thread.updated_at), "Last recorded event"));
+  return items;
+}
+
+// Evidence strip: one line that answers "can I trust it?" before the details, each chip jumping
+// to its section. Missing evidence is shown as missing rather than left out.
+function renderEvidence(thread, turn) {
+  const checks = turn?.checks || [];
+  const files = turn?.files || [];
+  const exitCodes = thread.capabilities?.exit_codes !== false;
+  const count = (test) => checks.filter(test).length;
+  const failed = count((check) => check.exit_code !== null && check.exit_code !== 0);
+  const passed = count((check) => check.exit_code === 0);
+  const unknown = count((check) => check.exit_code === null);
+  const decisions = thread.decisions.filter((decision) => decision.chosen !== null).length;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const chips = [
+    failed && [`${failed} failed`, "#checks-wrap", "danger"],
+    passed && [`${passed} passed`, "#checks-wrap", "passed"],
+    unknown && [`${unknown} ${exitCodes ? "without exit code" : "not recorded"}`, "#checks-wrap", "muted"],
+    files.length && !checks.length && ["No checks after edits", "#checks-wrap", "warning"],
+    checks.length && turn.edited_after_check && ["Edited after last check", "#checks-wrap", "warning"],
+    files.length && [`${plural(files.length, "file")} changed`, "#outcome-wrap", ""],
+    decisions && [plural(decisions, "decision"), "#decisions-wrap", ""],
+  ].filter(Boolean);
+  const header = threadId ? $("thread-heading") : document.querySelector(".panel-heading");
+  header.append($("evidence"));
+  $("evidence").hidden = chips.length === 0;
+  $("evidence-list").replaceChildren(...chips.map(([text, target, tone]) => {
+    const link = el("a", "evidence-chip", text);
+    link.href = target;
+    if (tone) link.dataset.tone = tone;
+    const item = el("li");
+    item.append(link);
+    return item;
+  }));
+}
+
+$("evidence-list").addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  if (!link) return;
+  event.preventDefault();
+  const target = document.querySelector(link.getAttribute("href"));
+  // Files sit in a closed disclosure; open it so the jump lands on the list itself.
+  if (link.getAttribute("href") === "#outcome-wrap") $("files-wrap").querySelector("details").open = true;
+  if (target) {
+    if (document.body.dataset.panel === "open") target.style.setProperty("scroll-margin-top", `calc(var(--space-2) + ${$("panel-head").offsetHeight}px)`);
+    target.scrollIntoView({ block: "start", behavior: calm.matches ? "auto" : "smooth" });
+  }
+});
+
 function renderThread(thread) {
   const title = threadId ? $("title") : $("panel-title");
   const openingPanel = !threadId && title.textContent === "Loading…";
@@ -940,7 +1238,7 @@ function renderThread(thread) {
     $("status-body").dataset.kind = "none";
     $("next-kind").hidden = true;
     setStatusText("It may have been archived. Go back to the inbox.");
-    for (const id of ["open-codex", "next-options", "reminder-toggle", "quiet-note", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
+    for (const id of ["open-codex", "next-options", "reminder-toggle", "quiet-note", "pending-step", "evidence", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
     if (openingPanel) title.focus({ preventScroll: true });
     return;
   }
@@ -949,10 +1247,10 @@ function renderThread(thread) {
   title.textContent = chatName(thread);
   if (threadId) document.title = `${chatName(thread)} · Your Turn`;
   subtitle.hidden = false;
-  subtitle.textContent = `${projectName(thread)} · ${ago(thread.updated_at)}`;
-  subtitle.title = `${thread.cwd} · last recorded event`;
+  subtitle.replaceChildren(...metaItems(thread));
   $("more").hidden = false;
   renderStatus(thread, turn);
+  renderEvidence(thread, turn);
   renderChanges(thread, turn);
   renderDecisions(thread);
   renderEarlier(thread.turns);
@@ -988,7 +1286,7 @@ function resetThread() {
   $("status-card").dataset.status = "idle";
   $("status-icon").setAttribute("href", "#i-turn");
   $("status-title").textContent = "Loading…";
-  for (const id of ["status-body", "open-codex", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
+  for (const id of ["status-body", "open-codex", "evidence", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
   for (const details of $("thread-view").querySelectorAll("details")) details.open = false;
   $("thread-view").scrollTop = 0;
 }
@@ -1027,7 +1325,7 @@ if (!threadId) {
   });
   $("panel-close").addEventListener("click", closePanel);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && openId && !document.querySelector("dialog[open]") && document.body.dataset.navigation !== "open") closePanel();
+    if (event.key === "Escape" && openId && !event.defaultPrevented && document.body.dataset.navigation !== "open") closePanel();
   });
   window.addEventListener("popstate", () => showPanel(wideDetail.matches ? new URLSearchParams(location.search).get("open") || "" : ""));
   wideDetail.addEventListener("change", () => {

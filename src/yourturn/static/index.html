@@ -43,6 +43,7 @@ SOFTWARE.
     <symbol id="i-usage" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 16v-4m5.5 4V7m5.5 9v-6"/></symbol>
     <symbol id="i-runtime" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2.5v3m6-3v3M9 18.5v3m6-3v3M2.5 9h3m-3 6h3m13-6h3m-3 6h3"/></symbol>
     <symbol id="i-workspace" viewBox="0 0 24 24"><path d="M3.5 7.5h7l2 2h8v9a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18.5Z"/><path d="M3.5 7.5V5A1.5 1.5 0 0 1 5 3.5h4l2 2"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6m9 3a9 9 0 0 0-9-9"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/></symbol>
     <symbol id="i-message" viewBox="0 0 24 24"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5Z"/></symbol>
     <symbol id="i-answer" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></symbol>
@@ -76,6 +77,7 @@ SOFTWARE.
   <path d="M14 18h-1l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5" />
   <path d="M19 22v.01" />
   <path d="M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" /></symbol>
+<symbol id="i-brand-github" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
   </defs>
 </svg>
 <a class="skip-link" href="#main-content">Skip to content</a>
@@ -83,8 +85,8 @@ SOFTWARE.
   <a class="brand rail-action" id="nav-inbox" href="/" aria-label="Your Turn inbox" aria-current="page" data-tooltip="Inbox"><img src="/assets/brand-leaf.webp" width="40" height="40" alt=""><span class="brand-name">Your Turn</span></a>
   <button class="icon-button drawer-close" id="menu-close" type="button" aria-label="Close navigation"><svg aria-hidden="true"><use href="#i-back"/></svg></button>
   <div class="sidebar-footer">
-    <button type="button" class="nav-link rail-action" data-dialog="settings" aria-label="Settings" data-tooltip="Settings"><svg aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-text">Settings</span></button>
-    <button type="button" class="nav-link rail-action" data-dialog="help" aria-label="Help" data-tooltip="Help"><svg aria-hidden="true"><use href="#i-question"/></svg><span class="nav-text">Help</span></button>
+    <button type="button" class="nav-link rail-action" data-aside="settings" aria-controls="settings" aria-expanded="false" aria-label="Settings" data-tooltip="Settings"><svg aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-text">Settings</span></button>
+    <button type="button" class="nav-link rail-action" data-aside="help" aria-controls="help" aria-expanded="false" aria-label="Help" data-tooltip="Help"><svg aria-hidden="true"><use href="#i-question"/></svg><span class="nav-text">Help</span></button>
   </div>
 </aside>
 <div class="rail-tooltip" id="rail-tooltip" aria-hidden="true" hidden></div>
@@ -103,6 +105,7 @@ SOFTWARE.
   <header class="top" id="thread-heading" hidden>
     <h1 id="title">Loading…</h1>
     <p class="subtitle" id="subtitle" hidden></p>
+    <nav class="evidence" id="evidence" aria-label="Evidence for this chat" hidden><ul id="evidence-list"></ul></nav>
   </header>
 
   <div id="inbox-view" hidden>
@@ -116,9 +119,9 @@ SOFTWARE.
       <a class="segment" data-kind="new" href="/?status=new"><span class="segment-count">–</span><span class="segment-label">New results</span></a>
       <a class="segment" data-kind="earlier" href="/?status=earlier"><span class="segment-count">–</span><span class="segment-label">Earlier</span></a>
     </nav>
-    <div class="compact-filter"><label for="compact-status">Chats</label><select id="compact-status" aria-label="Filter chats by status"><option value="">All chats</option><option value="waiting">Needs you</option><option value="working">Working</option><option value="new">New results</option><option value="earlier">Earlier</option></select></div>
+    <div class="compact-filter"><label for="compact-status">Chats</label><span class="select-field"><select id="compact-status" aria-label="Filter chats by status"><option value="">All chats</option><option value="waiting">Needs you</option><option value="working">Working</option><option value="new">New results</option><option value="earlier">Earlier</option></select><svg class="select-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span></div>
     </header>
-    <p class="empty card" id="inbox-empty" hidden>No Codex chats found in <code>~/.codex/sessions</code>. Start a chat in Codex and it appears here.</p>
+    <p class="empty card" id="inbox-empty" hidden>No agent chats found. Start a chat in Codex, Claude Code or Cursor and it appears here.</p>
     <p class="empty card" id="filter-empty" role="status" hidden></p>
     <div class="sections" id="sections"></div>
   </div>
@@ -129,18 +132,19 @@ SOFTWARE.
         <h2 id="panel-title" tabindex="-1">Loading…</h2>
         <p class="subtitle" id="panel-subtitle"></p>
       </div>
-      <button type="button" class="button" id="panel-close">Close</button>
+      <button type="button" class="button panel-inbox" id="panel-close"><svg aria-hidden="true"><use href="#i-inbox"/></svg>Inbox</button>
     </div>
     <section class="card status-card" id="status-card" aria-labelledby="status-title" data-status="idle">
       <div class="status-head">
         <span class="glyph"><svg aria-hidden="true"><use id="status-icon" href="#i-turn"/></svg></span>
         <h2 id="status-title">Loading…</h2>
         <button type="button" class="icon-button" id="reminder-toggle" aria-label="Dismiss reminder" hidden><svg aria-hidden="true"><use id="reminder-icon" href="#i-bell-off"/></svg></button>
-        <a class="open-codex" id="open-codex" href="codex://threads/" aria-label="Open in Codex (full chat)" hidden>Open in Codex<svg aria-hidden="true"><use href="#i-external"/></svg></a>
+        <a class="open-codex" id="open-codex" href="codex://threads/" aria-label="Open in Codex (full chat)" hidden>Open in Codex<svg aria-hidden="true"><use id="open-action-icon" href="#i-external"/></svg></a>
       </div>
       <div class="status-body" id="status-body" data-kind="unknown" hidden>
         <p class="status-kind" id="next-kind" hidden></p>
         <div class="status-text" id="status-text" aria-live="polite"></div>
+        <div class="pending-step" id="pending-step" hidden><p class="recap-label">Last recorded step</p><div id="pending-step-text"></div></div>
         <p class="quiet-note" id="quiet-note" hidden></p>
         <ul class="options" id="next-options" hidden></ul>
         <p id="reminder-note" role="status"></p>
@@ -203,7 +207,7 @@ SOFTWARE.
             <button type="button" class="chip" data-filter="key" aria-pressed="true">Key steps</button>
             <button type="button" class="chip" data-filter="all" aria-pressed="false">Everything</button>
           </div>
-          <p class="empty" id="timeline-empty">Activity appears as Codex works.</p>
+          <p class="empty" id="timeline-empty">Activity appears as the agent works.</p>
           <ol class="timeline" id="timeline"></ol>
         </details>
         <details class="list-row disclosure-row" id="tools-wrap">
@@ -223,10 +227,10 @@ SOFTWARE.
     </section>
   </div>
 
-  <footer class="footer" aria-label="Application version">v{{APP_VERSION}}</footer>
+  <footer class="footer"><span>v{{APP_VERSION}}</span><a class="footer-link" href="https://github.com/martin-gomola/your-turn" aria-label="Your Turn on GitHub" title="Your Turn on GitHub"><svg aria-hidden="true"><use href="#i-brand-github"/></svg></a></footer>
 </main>
-<dialog class="preferences-dialog" id="settings" aria-labelledby="settings-title">
-  <header class="dialog-heading"><h2 id="settings-title">Settings</h2><button type="button" class="button" data-close-dialog>Close</button></header>
+<section class="aside-panel" id="settings" aria-labelledby="settings-title" hidden>
+  <header class="aside-heading"><h2 id="settings-title" tabindex="-1">Settings</h2><button type="button" class="button" data-close-aside>Close</button></header>
   <form id="appearance-form"><fieldset><legend><span class="setting-title"><svg aria-hidden="true"><use href="#i-sun"/></svg>Appearance</span></legend><div class="appearance-choices">
     <label><input type="radio" name="appearance" value="system">System</label>
     <label><input type="radio" name="appearance" value="light">Light</label>
@@ -234,16 +238,16 @@ SOFTWARE.
   </div></fieldset></form>
   <p id="appearance-note" class="settings-note" role="status">Follows your device until you choose a theme.</p>
   <section class="notification-setting"><h3 class="setting-title"><svg aria-hidden="true"><use href="#i-bell"/></svg>Desktop notifications</h3><p id="notification-status"></p><button type="button" id="settings-notify" class="button">Enable notifications</button><p class="settings-note">Notifications work while a Your Turn tab is open. Your choice is saved only in this browser.</p></section>
-</dialog>
-<dialog class="preferences-dialog" id="help" aria-labelledby="help-title">
-  <header class="dialog-heading"><h2 id="help-title">Help</h2><button type="button" class="button" data-close-dialog>Close</button></header>
-  <p class="help-intro">Read chat recaps here. Choose <strong>Open in Codex</strong> to reply or take action.</p>
+</section>
+<section class="aside-panel" id="help" aria-labelledby="help-title" hidden>
+  <header class="aside-heading"><h2 id="help-title" tabindex="-1">Help</h2><button type="button" class="button" data-close-aside>Close</button></header>
+  <p class="help-intro">Read chat recaps here. Choose <strong>Open in Codex</strong> or <strong>Open in Cursor</strong> (for Claude Code, <strong>Copy resume command</strong>) to reply or take action.</p>
   <table class="help-statuses">
     <caption>Chat statuses</caption>
     <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>
     <tbody>
       <tr><th scope="row">Needs you</th><td>A question or action is waiting for you.</td></tr>
-      <tr><th scope="row">Working</th><td>Codex is working.</td></tr>
+      <tr><th scope="row">Working</th><td>The agent is working.</td></tr>
       <tr><th scope="row">New results</th><td>Unseen results from the last 24 hours. Opening a recap marks it seen.</td></tr>
       <tr><th scope="row">Earlier</th><td>Other chats in this inbox, including dismissed reminders. Not a full history or archive.</td></tr>
     </tbody>
@@ -251,16 +255,37 @@ SOFTWARE.
   <div class="help-details">
     <details><summary>Reminders and quiet chats</summary>
       <p>Dismissing a reminder changes only this browser’s inbox. It does not answer a question or approve an action.</p>
-      <p>“Quiet” means no recent activity was recorded. A command may still be running, or Codex may be waiting for approval. It is a hint, not a separate status.</p>
+      <p>“Quiet” means no recent activity was recorded. A command may still be running, or the agent may be waiting for approval in its app. It is a hint, not a separate status. Cursor reports pending approvals, so a Cursor chat waiting for one is in Needs you instead.</p>
     </details>
     <details><summary>Included chats</summary>
       <p>Chats updated in the last {{HISTORY_DAYS}} days. Each section shows 10 chats at first; choose Load more to see the next 10. Sub-agent chats are omitted.</p>
     </details>
     <details><summary>Connection and privacy</summary>
       <p><strong>Live:</strong> receiving local updates. <strong>Reconnecting:</strong> check the local server with <code>make status</code>.</p>
-      <p>Your Turn reads <code>~/.codex/sessions</code> on this machine. It does not change those files or control agents.</p>
+      <p>Your Turn reads <code>~/.codex/sessions</code>, <code>~/.claude/projects</code>, <code>~/.cursor/projects</code> and Cursor’s <code>state.vscdb</code> (read-only) on this machine. It does not change those files or control agents.</p>
     </details>
   </div>
+</section>
+<dialog class="decision-dialog" id="decision-dialog" aria-labelledby="decision-dialog-title">
+  <header class="decision-dialog-header">
+    <h2 id="decision-dialog-title" tabindex="-1">Full decision</h2>
+    <button type="button" class="button" id="decision-dialog-close">Close</button>
+  </header>
+  <div class="decision-dialog-content">
+    <section class="decision-dialog-section" id="decision-dialog-question-wrap">
+      <h3>Question</h3><p id="decision-dialog-question"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-answer-wrap">
+      <h3>Answer</h3><p class="decision-dialog-answer" id="decision-dialog-answer"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-reason-wrap" hidden>
+      <h3>Reason</h3><p id="decision-dialog-reason"></p>
+    </section>
+    <section class="decision-dialog-section" id="decision-dialog-options-wrap" hidden>
+      <h3 id="decision-dialog-options-title">Other options</h3><ul class="decision-dialog-options" id="decision-dialog-options"></ul>
+    </section>
+  </div>
+  <p class="decision-dialog-meta" id="decision-dialog-meta"></p>
 </dialog>
 </body>
 </html>

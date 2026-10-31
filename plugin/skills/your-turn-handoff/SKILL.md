@@ -2,7 +2,7 @@
 name: your-turn-handoff
 description: End every turn with the Your Turn handoff (Outcome and Next step lines), run checks after your last code edit, and log real decisions with log_decision. Use for every task in Codex, so the user can see at a glance what happened and what they need to do.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Your Turn handoff
