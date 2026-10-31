@@ -1,4 +1,8 @@
-"""Read-only view of a Codex chat, derived from the rollout JSONL file Codex writes per thread."""
+"""Read-only view of a Codex chat, derived from the rollout JSONL file Codex writes per thread.
+
+Harness-neutral types live in `yourturn.model` and judgements in `yourturn.heuristics`; they are
+re-exported here so existing imports keep working until the Codex adapter replaces this module.
+"""
 
 from __future__ import annotations
 
@@ -15,97 +19,37 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-THREAD_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+from yourturn.heuristics import (  # noqa: F401  (re-exported)
+    ACTION_KINDS,
+    DOC_SUFFIXES,
+    MAX_TEXT,
+    QUIET_SECONDS,
+    check_key as _check_key,
+    check_state,
+    check_status,
+    clip as _clip,
+    code_paths,
+    is_check_command,
+    is_quiet,
+    needs_you,
+    parse_answer,
+    parse_recap,
+)
+from yourturn.model import UUID as THREAD_ID, Check, Decision, Step, Turn  # noqa: F401  (re-exported)
+
 ROLLOUT_GLOB = "*/*/*/rollout-*.jsonl"
 DECISION_TOOL = "log_decision"
 MAX_STEPS = 300
 MAX_TURNS = 30
-MAX_TEXT = 280
 MAX_TAILS = 16
 INBOX_TAIL_BYTES = 8 * 1024 * 1024
-# Codex does not record approval prompts, so a working chat whose file stops growing is the only hint.
-QUIET_SECONDS = 120
-# Edits to these alone have nothing for tests or linters to check.
-DOC_SUFFIXES = (".md", ".mdx", ".rst", ".txt")
-ACTION_KINDS = {"answer", "review", "approve", "run", "decide", "do"}
 # Substring prefilter: rollout files carry multi-megabyte encrypted reasoning lines we never need to parse.
 WANTED = (b'"item_completed"', b'"task_started"', b'"task_complete"', b'"turn_aborted"', b'"session_meta"', b'"turn_context"', b'"token_count"')
 TOKEN_FIELDS = ("input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens")
 SHELL_WRAPPERS = {"-lc", "-c"}
-MARKDOWN_EMPHASIS = re.compile(r"\*\*|__|`")
 QUESTION_REPLY = re.compile(r"<send_user_message_question_reply>\s*(.*?)\s*</send_user_message_question_reply>", re.DOTALL)
 # Codex prepends app and environment context to user messages; it is not what the user typed.
 INJECTED_CONTEXT = re.compile(r"<([\w-]*context[\w-]*|user_instructions)\b[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
-ANSWER_LABEL = re.compile(
-    # The leading class must not match newlines: with MULTILINE, `\s` there is quadratic on blank lines.
-    r"^[ \t#>*_-]*(outcome|result|next step|your next step|next|recap)[*_\s]*:[*_\s]*(.*)$", re.IGNORECASE | re.MULTILINE
-)
-NEXT_KIND = re.compile(r"^(answer|review|approve|run|decide)\b\s*[:\-–]?\s*", re.IGNORECASE)
-NOTHING_NEEDED = re.compile(r"^(none|nothing|no action|n/a|—|-)\b", re.IGNORECASE)
-# A check is a command that runs the tool itself, so `rg pytest` (exit 1 when nothing matches) is not one.
-CHECK_COMMAND = re.compile(
-    r"(pytest|vitest|jest|mypy|ruff|eslint|tsc|pyright|go test|cargo (test|clippy)|"
-    r"(npm|pnpm|yarn|bun) (run )?(test|lint|check|typecheck|build)|make (check|test|lint|ci|build))\b"
-)
-CHECK_PREFIX = re.compile(r"((cd|source) \S+ *&& *|[A-Z_][A-Z0-9_]*=\S* +|(uv run|uvx|npx|bunx|pnpm exec|poetry run|python3? -m) +)*")
-HEADING = re.compile(r"#{1,6}\s+.*|(\*\*|__)[^*_\n]+\1:?")
-REQUEST = re.compile(r"^(please (provide|share|confirm|send|tell)|can you|could you)\b", re.IGNORECASE)
-# An imperative at a sentence start, or after "please" / "you can" and similar; "I ran pytest" never matches.
-ASK_LEAD = r"(?:^|[.!?:;]\s+|\bplease\s+|\byou (?:can|could|should|need to|may want to|might want to)\s+)"
-# "run into", "run out", "run 2 took 5s", "run nightly" are prose, not asks.
-RUN_NOUN = r"(?!(?:time|into|out|across|over|away|one|two|three|nightly|daily|weekly|\d)\b)"
-FINAL_ASKS = (
-    ("run", re.compile(ASK_LEAD + r"run:?\s+" + RUN_NOUN + r"\S", re.IGNORECASE)),
-    ("review", re.compile(ASK_LEAD + r"(?:review|take a look at|have a look at):?\s+(?!apps?\b)\S", re.IGNORECASE)),
-    # Not "let me know if…": it is the most common sign-off and rarely a real request.
-    ("answer", re.compile(r"\b(?:let me know (?:whether|which)|would you like|do you want|should i|shall i)\b", re.IGNORECASE)),
-)
-FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
-
-
-@dataclass
-class Step:
-    at: str
-    kind: str
-    title: str
-    detail: str = ""
-    status: str = "done"
-    turn: int = 0
-
-
-@dataclass
-class Decision:
-    at: str
-    source: str
-    question: str
-    options: list[str] = field(default_factory=list)
-    chosen: str | None = None
-    reason: str = ""
-    turn: int = 0
-
-
-@dataclass
-class Check:
-    command: str
-    exit_code: int | None
-    at: str
-
-
-@dataclass
-class Turn:
-    index: int
-    started_at: str = ""
-    ended_at: str = ""
-    status: str = "working"
-    prompt: str = ""
-    outcome: str = ""
-    recap: str = ""
-    next_kind: str = "unknown"
-    next_text: str = ""
-    formatted: bool = False
-    files: list[str] = field(default_factory=list)
-    checks: list[Check] = field(default_factory=list)
-    edited_after_check: bool = False
 
 
 @dataclass
@@ -145,11 +89,6 @@ class ThreadState:
         return data
 
 
-def _clip(text: str, limit: int = MAX_TEXT) -> str:
-    text = " ".join(MARKDOWN_EMPHASIS.sub("", text).split())
-    return text if len(text) <= limit else f"{text[: limit - 1]}…"
-
-
 def _token_counts(value: object) -> dict[str, int]:
     if not isinstance(value, dict):
         return {}
@@ -169,73 +108,6 @@ def _command(item: dict[str, Any]) -> str:
         command = command[-1] if shell else " ".join(map(str, command))
     lines = str(command or "").strip().splitlines()
     return _clip(lines[0] if lines else "", 120)
-
-
-def _check_key(command: str) -> str:
-    return re.sub(r"^cd \S+ *&& *", "", command)
-
-
-def parse_answer(text: str) -> tuple[str, str, str, bool]:
-    """Return (outcome, next_kind, next_text, formatted) from a final answer.
-
-    Answers following the Your Turn handoff format carry `Outcome:` and `Next step:` lines; anything else
-    falls back to the first prose paragraph. The next step is then inferred from the final paragraph (a
-    `run`, `review`, or `answer` ask, or a closing question), or an `answer` when the reply opens with a request.
-    """
-    labels = {match.group(1).lower(): match.group(2) for match in ANSWER_LABEL.finditer(text)}
-    outcome = labels.get("outcome") or labels.get("result")
-    step = labels.get("your next step") or labels.get("next step") or labels.get("next")
-    if outcome is None:
-        # Code blocks are not prose: `then run ./deploy` in a script is not an ask.
-        parts = [part.strip() for part in re.split(r"\n\s*\n", FENCE.sub("", text)) if part.strip()]
-        flat = [" ".join(line.strip(" -*#>") for line in part.splitlines()).strip() for part in parts]
-        body = [line for part, line in zip(parts, flat) if not HEADING.fullmatch(part) and not line.endswith(":")]
-        last = " ".join(flat[-2:]) if len(flat) > 1 and flat[-2].endswith(":") else flat[-1] if flat else ""
-        kind = next((name for name, ask in FINAL_ASKS if ask.search(last)), "answer" if last.endswith("?") else "")
-        request = last if kind else ""
-        if not kind and flat and REQUEST.match(flat[0]):
-            kind, request = "answer", " ".join(flat[:2]) if flat[0].endswith(":") else flat[0]
-        summary = body[0] if body else flat[0] if flat else ""
-        return _clip(summary, 200), kind or "unknown", _clip(request, 200), False
-    kind, step_text = "unknown", _clip(step or "", 200)
-    if step is not None:
-        if NOTHING_NEEDED.match(step_text):
-            kind, step_text = "none", ""
-        elif match := NEXT_KIND.match(step_text):
-            kind, step_text = match.group(1).lower(), step_text[match.end():]
-        else:
-            kind = "do"
-    return _clip(outcome, 200), kind, step_text, True
-
-
-def parse_recap(text: str) -> str:
-    """The whole-chat summary from a `Recap:` line, which the handoff asks for after the first turn."""
-    recap = next((m.group(2) for m in ANSWER_LABEL.finditer(text) if m.group(1).lower() == "recap"), "")
-    return _clip(recap, 400)
-
-
-def needs_you(entry: dict[str, Any]) -> bool:
-    """A pending question, or a finished turn that recorded an action for the user."""
-    if entry["status"] == "waiting":
-        return True
-    return entry["status"] == "done" and entry["next_kind"] in ACTION_KINDS and bool(entry["next_text"])
-
-
-def check_state(turn: Turn | None) -> str:
-    """`failed` when a check's latest run failed, `unchecked` when edits have no check after them."""
-    if turn is None:
-        return ""
-    if any(check.exit_code not in (0, None) for check in turn.checks):
-        return "failed"
-    code = [path for path in turn.files if not path.endswith(DOC_SUFFIXES) and "/docs/" not in path]
-    if code and (not turn.checks or turn.edited_after_check):
-        return "unchecked"
-    return ""
-
-
-def is_quiet(status: str, modified_ns: int, now: float | None = None) -> bool:
-    """A working chat whose rollout has not changed for a while: waiting on an approval, a long command, or stalled."""
-    return status == "working" and (now or time.time()) - modified_ns / 1e9 > QUIET_SECONDS
 
 
 def user_text(text: str) -> str:
@@ -373,7 +245,8 @@ class RolloutParser:
             changes = item.get("changes")
             paths = list(changes) if isinstance(changes, dict) else []
             turn.files.extend(path for path in paths if path not in turn.files)
-            turn.edited_after_check = turn.edited_after_check or bool(turn.checks)
+            # Documentation edits after a passing check do not make it stale.
+            turn.edited_after_check = turn.edited_after_check or (bool(turn.checks) and bool(code_paths(paths)))
             noun = "file" if len(paths) == 1 else "files"
             self._step(at, "edit", f"Edited {len(paths)} {noun}", ", ".join(Path(p).name for p in paths))
         elif kind == "McpToolCall":
@@ -418,7 +291,7 @@ class RolloutParser:
         command = _command(item)
         exit_code = item.get("exit_code")
         failed = exit_code not in (0, None)
-        if CHECK_COMMAND.match(command, CHECK_PREFIX.match(command).end()):
+        if is_check_command(command):
             # `cd repo && pytest` and `pytest` are the same check; a later run replaces the earlier result.
             key = _check_key(command)
             turn.checks = [check for check in turn.checks if _check_key(check.command) != key]
