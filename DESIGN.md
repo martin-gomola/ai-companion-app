@@ -92,8 +92,8 @@ for their own sake, are out of scope.
 - Escape/Close returns focus to the originating row, or the current filter if the seen result moved.
   Browser Back/Forward restores pane state. Narrowing the viewport redirects an open pane to the
   full chat page with its filter return scope preserved.
-- Detail content scrolls independently and stays top-aligned. Native dialogs take precedence over
-  pane Escape handling. Gachapon animation and parallax remain deferred; scene composition stays steady.
+- Detail content scrolls independently and stays top-aligned. Escape inside the Settings/Help panel
+  closes only that panel; elsewhere it closes the detail pane. Gachapon animation and parallax remain deferred; scene composition stays steady.
 - The status card sizes to its complete content; the primary chat action must never be
   clipped by a grid track. Compact-list filters stay pinned, and row scroll margins account for them.
 - Working rows use their status or quiet label without generic per-item coaching text. Actual
@@ -106,7 +106,11 @@ for their own sake, are out of scope.
   without claiming it was saved. Notification permission is requested only through an explicit action.
 - Help explains the current read-only workflow, four status groups, recent-window limits, quiet hints,
   reminder dismissal, local privacy and connection troubleshooting. There are no new account/sync features.
-- Native modal dialogs support Escape and focus return. The mobile drawer traps focus, makes main
+- Settings and Help open as one non-modal panel docked beside the rail, never a modal popup. The rail
+  button toggles it (`aria-expanded`, selected style) and swaps between the two; Close, Escape from inside
+  and a second click return focus to the rail button. From 1280px the page reflows beside the 380px panel
+  so Appearance previews on live content, including the split view; 960–1279px overlays the page edge;
+  below 960px the panel covers the page, makes it inert and returns focus to the menu button. The mobile drawer traps focus, makes main
   content inert and returns focus to its menu button. Footer actions remain reachable in short windows.
 
 ## Chat page
@@ -242,7 +246,7 @@ checks provide evidence for the tested Chromium engine, not Safari certification
 
 Dated verification records live in [docs/verification.md](./docs/verification.md).
 
-Help uses a two-column semantic status table and three native disclosures for reminders/quiet, inclusion limits, and connection/privacy. Keep the introduction brief; technical details stay available on demand. The dialog owns scrolling at narrow widths.
+Help uses a two-column semantic status table and three native disclosures for reminders/quiet, inclusion limits, and connection/privacy. Keep the introduction brief; technical details stay available on demand. The panel owns its scrolling.
 
 Desktop notifications are controlled only in Settings. Appearance and Desktop notifications headings pair lightweight decorative pictograms with persistent text labels.
 

@@ -779,16 +779,32 @@ document.addEventListener("keydown", (event) => {
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 });
-for (const button of document.querySelectorAll("[data-dialog]")) {
-  const dialog = $(button.dataset.dialog);
-  button.addEventListener("click", () => {
-    closeNavigation(false);
-    syncAppearance(); syncSettingsNotifications();
-    dialog.showModal();
-  });
-  dialog.addEventListener("close", () => (drawer.matches ? $("menu-toggle") : button).focus());
+// Settings and Help dock beside the rail without a backdrop; on phones the panel covers the page instead.
+function showAside(name, restoreFocus = true) {
+  const current = document.body.dataset.aside || "";
+  for (const button of document.querySelectorAll("[data-aside]")) button.setAttribute("aria-expanded", String(button.dataset.aside === name));
+  for (const panel of document.querySelectorAll(".aside-panel")) panel.hidden = panel.id !== name;
+  if (name) document.body.dataset.aside = name;
+  else delete document.body.dataset.aside;
+  const covered = Boolean(name) && drawer.matches;
+  $("main-content").inert = covered;
+  document.querySelector(".bar").inert = covered;
+  if (name && name !== current) { syncAppearance(); syncSettingsNotifications(); $(`${name}-title`).focus(); }
+  else if (!name && current && restoreFocus) (drawer.matches ? $("menu-toggle") : document.querySelector(`[data-aside="${current}"]`)).focus();
 }
-for (const button of document.querySelectorAll("[data-close-dialog]")) button.addEventListener("click", () => button.closest("dialog").close());
+for (const button of document.querySelectorAll("[data-aside]")) button.addEventListener("click", () => {
+  closeNavigation(false);
+  showAside(document.body.dataset.aside === button.dataset.aside ? "" : button.dataset.aside);
+});
+for (const button of document.querySelectorAll("[data-close-aside]")) button.addEventListener("click", () => showAside(""));
+// Escape closes the panel only from inside it, so it never steals Escape from the chat pane beside it.
+document.addEventListener("keydown", (event) => {
+  const panel = document.body.dataset.aside && $(document.body.dataset.aside);
+  if (event.key !== "Escape" || !panel || !(drawer.matches || panel.contains(document.activeElement))) return;
+  event.preventDefault();
+  showAside("");
+});
+drawer.addEventListener("change", () => showAside(document.body.dataset.aside || "", false));
 
 // Prime both small local plates; CSS always selects art using the same pre-paint theme as the UI.
 if (!threadId) for (const theme of ["light", "dark"]) {
@@ -1159,7 +1175,7 @@ if (!threadId) {
   });
   $("panel-close").addEventListener("click", closePanel);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && openId && !document.querySelector("dialog[open]") && document.body.dataset.navigation !== "open") closePanel();
+    if (event.key === "Escape" && openId && !event.defaultPrevented && document.body.dataset.navigation !== "open") closePanel();
   });
   window.addEventListener("popstate", () => showPanel(wideDetail.matches ? new URLSearchParams(location.search).get("open") || "" : ""));
   wideDetail.addEventListener("change", () => {

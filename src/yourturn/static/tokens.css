@@ -75,6 +75,7 @@
   --motion-pulse: 2s;
   --size-tone: 26px;
   --sidebar-width: 80px;
+  --aside-width: 0px;
   --page-inset: 40px;
   --page-inset-end: 32px;
   /* Inset system. Page gutters (above) place content; inside a control, text starts at

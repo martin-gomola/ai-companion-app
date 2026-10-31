@@ -83,8 +83,8 @@ SOFTWARE.
   <a class="brand rail-action" id="nav-inbox" href="/" aria-label="Your Turn inbox" aria-current="page" data-tooltip="Inbox"><img src="/assets/brand-leaf.webp" width="40" height="40" alt=""><span class="brand-name">Your Turn</span></a>
   <button class="icon-button drawer-close" id="menu-close" type="button" aria-label="Close navigation"><svg aria-hidden="true"><use href="#i-back"/></svg></button>
   <div class="sidebar-footer">
-    <button type="button" class="nav-link rail-action" data-dialog="settings" aria-label="Settings" data-tooltip="Settings"><svg aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-text">Settings</span></button>
-    <button type="button" class="nav-link rail-action" data-dialog="help" aria-label="Help" data-tooltip="Help"><svg aria-hidden="true"><use href="#i-question"/></svg><span class="nav-text">Help</span></button>
+    <button type="button" class="nav-link rail-action" data-aside="settings" aria-controls="settings" aria-expanded="false" aria-label="Settings" data-tooltip="Settings"><svg aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-text">Settings</span></button>
+    <button type="button" class="nav-link rail-action" data-aside="help" aria-controls="help" aria-expanded="false" aria-label="Help" data-tooltip="Help"><svg aria-hidden="true"><use href="#i-question"/></svg><span class="nav-text">Help</span></button>
   </div>
 </aside>
 <div class="rail-tooltip" id="rail-tooltip" aria-hidden="true" hidden></div>
@@ -228,8 +228,8 @@ SOFTWARE.
 
   <footer class="footer" aria-label="Application version">v{{APP_VERSION}}</footer>
 </main>
-<dialog class="preferences-dialog" id="settings" aria-labelledby="settings-title">
-  <header class="dialog-heading"><h2 id="settings-title">Settings</h2><button type="button" class="button" data-close-dialog>Close</button></header>
+<section class="aside-panel" id="settings" aria-labelledby="settings-title" hidden>
+  <header class="aside-heading"><h2 id="settings-title" tabindex="-1">Settings</h2><button type="button" class="button" data-close-aside>Close</button></header>
   <form id="appearance-form"><fieldset><legend><span class="setting-title"><svg aria-hidden="true"><use href="#i-sun"/></svg>Appearance</span></legend><div class="appearance-choices">
     <label><input type="radio" name="appearance" value="system">System</label>
     <label><input type="radio" name="appearance" value="light">Light</label>
@@ -237,9 +237,9 @@ SOFTWARE.
   </div></fieldset></form>
   <p id="appearance-note" class="settings-note" role="status">Follows your device until you choose a theme.</p>
   <section class="notification-setting"><h3 class="setting-title"><svg aria-hidden="true"><use href="#i-bell"/></svg>Desktop notifications</h3><p id="notification-status"></p><button type="button" id="settings-notify" class="button">Enable notifications</button><p class="settings-note">Notifications work while a Your Turn tab is open. Your choice is saved only in this browser.</p></section>
-</dialog>
-<dialog class="preferences-dialog" id="help" aria-labelledby="help-title">
-  <header class="dialog-heading"><h2 id="help-title">Help</h2><button type="button" class="button" data-close-dialog>Close</button></header>
+</section>
+<section class="aside-panel" id="help" aria-labelledby="help-title" hidden>
+  <header class="aside-heading"><h2 id="help-title" tabindex="-1">Help</h2><button type="button" class="button" data-close-aside>Close</button></header>
   <p class="help-intro">Read chat recaps here. Choose <strong>Open in Codex</strong> or <strong>Open in Cursor</strong> (for Claude Code, <strong>Copy resume command</strong>) to reply or take action.</p>
   <table class="help-statuses">
     <caption>Chat statuses</caption>
@@ -264,6 +264,6 @@ SOFTWARE.
       <p>Your Turn reads <code>~/.codex/sessions</code>, <code>~/.claude/projects</code>, <code>~/.cursor/projects</code> and Cursor’s <code>state.vscdb</code> (read-only) on this machine. It does not change those files or control agents.</p>
     </details>
   </div>
-</dialog>
+</section>
 </body>
 </html>

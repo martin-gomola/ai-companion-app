@@ -383,13 +383,13 @@ a.brand:hover { background: var(--color-surface-pressed); }
 .nav-text { display: none; }
 .rail-tooltip { position: fixed; right: 88px; z-index: 20; padding: var(--space-2) var(--space-3); transform: translateY(-50%); color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-separator); border-radius: var(--radius-md); box-shadow: var(--dialog-shadow); font-size: var(--text-sm); pointer-events: none; }
 .nav-link svg { width: 24px; height: 24px; stroke-width: 1.7; }
-.nav-link[aria-current="page"] { color: var(--color-nav-selected); background: color-mix(in srgb, var(--color-accent-fill) 11%, var(--color-sidebar)); }
+.nav-link:is([aria-current="page"], [aria-expanded="true"]) { color: var(--color-nav-selected); background: color-mix(in srgb, var(--color-accent-fill) 11%, var(--color-sidebar)); }
 .nav-link:hover { background: var(--color-surface-pressed); }
 .sidebar-footer { display: grid; gap: var(--space-3); margin-top: auto; padding-top: var(--space-5); border-top: 1px solid var(--color-separator); }
-.page { width: calc(100% - var(--sidebar-width)); max-width: none; margin: 0 var(--sidebar-width) 0 0; padding: 0 var(--page-inset-end) var(--space-8) var(--page-inset); gap: var(--space-6); }
+.page { width: calc(100% - var(--sidebar-width) - var(--aside-width)); max-width: none; margin: 0 calc(var(--sidebar-width) + var(--aside-width)) 0 0; padding: 0 var(--page-inset-end) var(--space-8) var(--page-inset); gap: var(--space-6); }
 .page:focus { outline: none; }
 #inbox-view { gap: 0; }
-.bar { position: absolute; z-index: 3; top: var(--space-2); left: var(--page-inset); right: calc(var(--sidebar-width) + var(--page-inset-end)); padding: 0; background: none; border: 0; }
+.bar { position: absolute; z-index: 3; top: var(--space-2); left: var(--page-inset); right: calc(var(--sidebar-width) + var(--aside-width) + var(--page-inset-end)); padding: 0; background: none; border: 0; }
 .utility { background: transparent; box-shadow: none; }
 .connection { padding-inline: var(--space-2); }
 .theme-toggle::before { display: none; }
@@ -411,8 +411,8 @@ a.brand:hover { background: var(--color-surface-pressed); }
 /* Scrollbars stay out of sight until they are useful: thin, no track, and inner panes only show
    the thumb while pointed at or focused. The page keeps a faint thumb so its length stays visible. */
 html { --scroll-thumb: color-mix(in srgb, var(--color-text) 22%, transparent); scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
-:is(.sidebar, #inbox-view, #thread-view, #sections, .preferences-dialog) { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-:is(.sidebar, #inbox-view, #thread-view, #sections, .preferences-dialog):is(:hover, :has(:focus-visible)) { scrollbar-color: var(--scroll-thumb) transparent; }
+:is(.sidebar, #inbox-view, #thread-view, #sections, .aside-panel) { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+:is(.sidebar, #inbox-view, #thread-view, #sections, .aside-panel):is(:hover, :has(:focus-visible)) { scrollbar-color: var(--scroll-thumb) transparent; }
 @supports (backdrop-filter: blur(14px)) {
   .segments { background: var(--glass-fill); backdrop-filter: blur(14px) saturate(1.1); }
 }
@@ -476,7 +476,7 @@ body[data-panel="open"] #sections .group[data-section="waiting"] { margin-inline
 .menu-toggle, .drawer-close, .drawer-backdrop { display: none; }
 
 /* Chat pages reuse the shell and existing live detail content. */
-[data-view="thread"] .bar { position: sticky; top: 0; left: auto; margin-right: var(--sidebar-width); padding: var(--space-2) var(--page-inset); border-bottom: 1px solid var(--color-separator); background: var(--color-bg); }
+[data-view="thread"] .bar { position: sticky; top: 0; left: auto; margin-right: calc(var(--sidebar-width) + var(--aside-width)); padding: var(--space-2) var(--page-inset); border-bottom: 1px solid var(--color-separator); background: var(--color-bg); }
 [data-view="thread"] .page { padding-top: var(--space-6); grid-template-columns: minmax(0, var(--page-max)); justify-content: center; }
 .panel-head { display: flex; gap: var(--space-3); align-items: start; }
 .panel-heading { flex: 1; min-width: 0; }
@@ -529,13 +529,20 @@ body[data-panel="open"] .panel-head { position: sticky; top: 0; z-index: 2; padd
   body[data-panel="open"] .row { scroll-margin-block-start: var(--space-3); }
 }
 
-/* Native modal dialogs keep keyboard focus inside and restore it on close. */
-.preferences-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: var(--content-inset); color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-separator); border-radius: 16px; box-shadow: var(--dialog-shadow); }
-.preferences-dialog::backdrop { background: var(--backdrop); }
-.dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); }
-.dialog-heading h2 { font-size: var(--text-section); }
-.preferences-dialog fieldset { margin: 0; border: 0; padding: 0; }
-.preferences-dialog legend { margin-bottom: var(--space-3); font-weight: var(--weight-semibold); }
+/* Settings and Help extend the rail as a non-modal panel. From 1280px the page reflows beside it, so
+   Appearance previews on the live inbox; narrower desktops overlay the page edge; phones cover it. */
+.aside-panel { position: fixed; z-index: 4; inset: 0 var(--sidebar-width) 0 auto; width: 380px; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-2) var(--content-inset) var(--content-inset); color: var(--color-text); background: var(--color-sidebar); border-left: 1px solid var(--color-separator); }
+@media (min-width: 1280px) { body[data-aside] { --aside-width: 380px; } }
+@media (min-width: 960px) and (max-width: 1279px) { .aside-panel { box-shadow: var(--dialog-shadow); } }
+@media (max-width: 959px) {
+  .aside-panel { inset: 0; width: auto; z-index: 6; }
+  body[data-aside] { overflow: hidden; }
+}
+.aside-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--size-control); margin-bottom: var(--space-5); }
+.aside-heading h2 { font-size: var(--text-section); }
+.aside-heading h2:focus { outline: none; }
+.aside-panel fieldset { margin: 0; border: 0; padding: 0; }
+.aside-panel legend { margin-bottom: var(--space-3); font-weight: var(--weight-semibold); }
 .appearance-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .appearance-choices label { display: flex; align-items: center; gap: var(--space-2); min-height: var(--size-control); padding-inline: var(--space-3); border: 1px solid var(--color-separator); border-radius: var(--radius-md); cursor: pointer; }
 .appearance-choices input { accent-color: var(--color-accent-fill); }
@@ -546,7 +553,7 @@ body[data-panel="open"] .panel-head { position: sticky; top: 0; z-index: 2; padd
 .setting-title svg { width: 22px; height: 22px; stroke-width: 1.8; }
 .notification-setting .button { justify-self: start; border: 1px solid var(--color-separator); }
 .button:disabled { color: var(--color-text-muted); cursor: not-allowed; }
-#help { width: min(640px, calc(100% - 32px)); font-size: var(--text-md); line-height: 1.5; }
+#help { font-size: var(--text-md); line-height: 1.5; }
 .help-intro { margin-bottom: var(--space-5); color: var(--color-text-muted); }
 .help-intro strong { color: var(--color-text); }
 .help-statuses { width: 100%; border-collapse: collapse; text-align: start; }
@@ -633,8 +640,8 @@ body[data-panel="open"] .panel-head { position: sticky; top: 0; z-index: 2; padd
 @media (prefers-reduced-motion: no-preference) {
   .nav-link, .button, .icon-button { transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); }
   .button:active, .icon-button:active { transform: scale(.98); }
-  .preferences-dialog[open] { animation: dialog-open 160ms var(--ease-standard); }
-  @keyframes dialog-open { from { opacity: 0; transform: translateY(6px); } }
+  .aside-panel:not([hidden]) { animation: aside-open 160ms var(--ease-standard); }
+  @keyframes aside-open { from { opacity: 0; transform: translateX(8px); } }
 }
 
 .load-more { justify-self: center; margin-top: var(--space-3); border: 1px solid var(--color-separator); }
