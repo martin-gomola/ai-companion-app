@@ -90,8 +90,12 @@ each chat into a short recap.
 | --- | --- | --- |
 | Codex | Session files under `~/.codex/sessions`, and chat titles from `~/.codex/session_index.jsonl` | `--codex-home` or `CODEX_HOME` |
 | Claude Code | Transcripts under `~/.claude/projects` | `--claude-home` or `CLAUDE_CONFIG_DIR` |
-| Cursor | Agent transcripts under `~/.cursor/projects/*/agent-transcripts` | `--cursor-home` |
-| Cursor | Chat titles, folders, archived and sub-agent flags, and pending approvals from `globalStorage/state.vscdb`, opened with SQLite `mode=ro` | `--cursor-user-dir` (default: `~/Library/Application Support/Cursor/User` on macOS, `~/.config/Cursor/User` on Linux, `AppData/Roaming/Cursor/User` on Windows) |
+| Cursor | Agent transcripts under `~/.cursor/projects/*/agent-transcripts`, where Cursor writes them | `--cursor-home` |
+| Cursor | Chat titles, folders, branches, last edits, archived and sub-agent flags, and pending approvals from `globalStorage/state.vscdb`, opened with SQLite `mode=ro` | `--cursor-user-dir` (default: `~/Library/Application Support/Cursor/User` on macOS, `~/.config/Cursor/User` on Linux, `AppData/Roaming/Cursor/User` on Windows) |
+
+Newer Cursor versions write no transcript for top-level chats and keep their messages in the cloud.
+Those chats come from their `state.vscdb` row alone: title, folder, branch, the files Cursor lists as
+edited, pending approval, and last update.
 
 `your-turn serve` and `your-turn install` take the same options: `--port` (default 8787) and the
 four location flags above. The server always binds `127.0.0.1`.
@@ -100,7 +104,7 @@ The apps do not record the same things, so each chat shows only what its source 
 
 | | Codex | Claude Code | Cursor |
 | --- | --- | --- | --- |
-| Turn start and end | Logged by Codex | Inferred from prompts and the last text block | Logged by Cursor |
+| Turn start and end | Logged by Codex | Inferred from prompts and the last text block | Logged in the transcript; without one, only the last update |
 | Questions to you | Structured questions with options | `AskUserQuestion`, caught mid-turn while the agent waits | `AskQuestion`; the answer text is not recorded |
 | Pending approvals | Not logged | Not logged; a quiet chat names the tool call still without a result | `hasBlockingPendingActions` from `state.vscdb` |
 | Check results | Real exit codes | Pass or fail (tool error flag) | Not recorded |
@@ -137,9 +141,9 @@ What stays out, so the inbox lists only chats you opened and only what you typed
 - Sub-agents: Codex sub-agent threads and headless `codex exec` runs, Claude Code sidechain
   transcripts, and Cursor composers flagged as sub-agents. Starting one shows as a step in its
   parent chat.
-- Archived Cursor chats, empty Cursor transcripts, and transcripts Cursor no longer indexes in
-  `state.vscdb` (deleted or cleaned-up chats), plus every chat whose file has not changed within
-  `history_days`.
+- Archived Cursor chats, empty Cursor transcripts, transcripts Cursor no longer indexes in
+  `state.vscdb` (deleted or cleaned-up chats), and Cursor rows with no title or update time (drafts),
+  plus every chat with no activity within `history_days`.
 - Abandoned Cursor turns: a turn with no end, no pending approval or question, and no transcript
   write for an hour is shown as stopped instead of Working.
 - Context the apps inject into prompts: Codex environment blocks, Claude Code system reminders,
@@ -171,6 +175,9 @@ older chats.
   **Approve pending action in Cursor**, and leaves it once you approve.
 - Cursor transcripts record commands but not their results, so Cursor checks show no pass or fail,
   and its timeline times are per turn, not per step. Only the latest turn end is exact.
+- A Cursor chat with no transcript has no timeline, prompt, or checks. Its recap is the list of edited
+  files, and it counts as Working only while Cursor updated it in the last two minutes. A stale
+  approval flag in Cursor keeps the chat in Needs you until Cursor clears it.
 - Claude Code reports whether a command errored, not its exit code, so a check shows pass or fail
   without the code.
 - Claude Code and Cursor have no chat deep link: Claude Code gets a resume command, and Cursor opens

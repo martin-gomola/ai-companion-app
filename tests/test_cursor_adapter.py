@@ -302,7 +302,8 @@ def test_discover_skips_orphaned_and_empty_transcripts(tmp_path: Path) -> None:
     _write(home, _turn())
     _write(home, _turn(), cid=orphan)  # Has a transcript, but Cursor no longer indexes it.
     _write(home, [], cid=empty)
-    _database(user_dir, [(CID, 0, 0, _header("Fix parser")), (empty, 0, 0, _header("Empty chat"))])
+    # A header without a title or activity time is a draft, so the empty transcript has nothing to fall back on.
+    _database(user_dir, [(CID, 0, 0, _header("Fix parser")), (empty, 0, 0, {"composerId": empty})])
     assert [ref.session_id for ref in CursorAdapter(home=home, user_dir=user_dir).discover()] == [CID]
     # Without a readable database there is no index to check against, so the orphan stays.
     found = {ref.session_id for ref in CursorAdapter(home=home, user_dir=tmp_path / "none").discover()}
@@ -326,3 +327,39 @@ def test_open_turn_untouched_for_an_hour_is_stopped(tmp_path: Path) -> None:
     asked = _write(tmp_path, [user("Ship?"), assistant(ASK)], cid=ARCHIVED)
     os.utime(asked, (hours_ago, hours_ago))
     assert _fold(asked).inbox_fields()["needs_you"] is True
+
+
+def _now_ms(seconds_ago: float = 0) -> int:
+    return int((time.time() - seconds_ago) * 1000)
+
+
+def test_chat_without_a_transcript_is_served_from_its_header(tmp_path: Path) -> None:
+    home, user_dir = tmp_path / "cursor", tmp_path / "User"
+    (home / "projects").mkdir(parents=True)
+    done, draft, stale = CID, "9f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5f", "9f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a60"
+    header = {**_header("Deploy improvements", updated=_now_ms(600)), "subtitle": "Edited Makefile, .env.example",
+              "trackedGitRepos": [{"repoPath": CWD, "branches": [{"branchName": "old", "lastInteractionAt": 1},
+                                                                 {"branchName": "feat/deploy", "lastInteractionAt": 2}]}]}
+    _database(user_dir, [(done, 0, 0, header), (draft, 0, 0, {"composerId": draft}),
+                         (stale, 0, 0, _header("Old chat", updated=_now_ms(30 * 86400)))])
+    codex_home = tmp_path / "codex"
+    (codex_home / "sessions").mkdir(parents=True)
+    hub = SessionHub.for_codex_home(codex_home, scan_ttl=0, cursor_home=home, cursor_user_dir=user_dir)
+
+    # The draft has no title or activity, and the old chat is outside the history window.
+    (row,) = hub.inbox_dicts()
+    assert (row["key"], row["title"], row["status"], row["outcome"], row["needs_you"]) == (
+        f"cursor:{done}", "Deploy improvements", "done", "Edited Makefile, .env.example", False)
+    detail = hub.detail_dict(f"cursor:{done}")
+    assert detail is not None and (detail["git_branch"], detail["cwd"], detail["project"]) == ("feat/deploy", CWD, "my-repo")
+
+    # Cursor is working on it again, then asks for an approval: the header alone tells both.
+    _set_header(user_dir, {**header, "lastUpdatedAt": _now_ms()})
+    (row,) = hub.inbox_dicts()
+    assert (row["status"], row["quiet"]) == ("working", False)
+    _set_header(user_dir, {**header, "lastUpdatedAt": _now_ms(), "hasBlockingPendingActions": True})
+    (row,) = hub.inbox_dicts()
+    assert (row["status"], row["next_kind"], row["needs_you"]) == ("waiting", "approve", True)
+    # Each change rebuilds the chat rather than stacking turns.
+    detail = hub.detail_dict(f"cursor:{done}")
+    assert detail is not None and len(detail["turns"]) == 1

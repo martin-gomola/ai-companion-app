@@ -10,6 +10,10 @@ approval (`hasBlockingPendingActions`) come from the `composerHeaders` table of
 Cursor's `globalStorage/state.vscdb`, opened with `mode=ro` (never written, WAL included).
 When that database is readable, transcripts it does not index (deleted or cleaned-up chats) are
 skipped, as are empty transcripts. A turn left open with no write for an hour is closed as stopped.
+
+Newer Cursor versions write no transcript for top-level chats and keep their messages in the cloud
+(`cursorDiskKV` holds no bubbles for them). Such a chat is served from its header alone (title,
+folder, branch, `subtitle`, last update, pending approval) through `HeaderCursor`.
 """
 
 from __future__ import annotations
@@ -41,7 +45,7 @@ from yourturn.harness.base import (
     UserMessage,
 )
 from yourturn.harness.codex import ASK_USER_TOOL, DECISION_TOOL, SUBAGENT_TOOL, TURN_COMPLETED, CodexCursor, _command
-from yourturn.heuristics import clip
+from yourturn.heuristics import QUIET_SECONDS, clip
 from yourturn.model import Capabilities, Handoff, Harness, SessionRef
 
 TRANSCRIPT_GLOB = "*/agent-transcripts/*/*.jsonl"  # Sub-agent transcripts live deeper, in .../subagents/.
@@ -258,6 +262,75 @@ class CursorCursor(CodexCursor):
         return [ToolCall(ts=self._ts, name=name, arguments=text)]
 
 
+class HeaderCursor:
+    """A chat known only from its `composerHeaders` row (implements `EventCursor`).
+
+    The header is a state, not a log, so every change replays the whole chat and bumps
+    `truncations`, which makes the hub rebuild the chat from scratch.
+    """
+
+    def __init__(self, ref: SessionRef, header: Callable[[], dict[str, Any]]) -> None:
+        self._ref = ref
+        self._header = header
+        self._state: tuple[Any, ...] | None = None
+        self.truncations = 0
+
+    @property
+    def ref(self) -> SessionRef:
+        return self._ref
+
+    @property
+    def offset(self) -> int:
+        return 0
+
+    def reset(self) -> None:
+        self._state = None
+
+    def read_new(self) -> list[Event]:
+        header = self._header()
+        updated: datetime | None = header.get("updated")
+        # No turn end is recorded: a chat Cursor touched in the last two minutes counts as working.
+        active = updated is not None and time.time() - updated.timestamp() < QUIET_SECONDS
+        state = (updated, bool(header.get("pending")), header.get("subtitle"), header.get("title"), active)
+        if state == self._state:
+            return []
+        if self._state is not None:
+            self.truncations += 1
+        self._state = state
+        events: list[Event] = [
+            Meta(
+                ts=header.get("created") or updated,
+                session_id=self._ref.session_id,
+                cwd=self._ref.cwd or "",
+                harness=Harness.CURSOR.value,
+                model_provider="cursor",
+                title=header.get("title") or None,
+                git_branch=header.get("branch"),
+                subagent=False,
+                parent_id="",
+            ),
+            TurnStarted(ts=updated),
+        ]
+        if not active:
+            if header.get("subtitle"):
+                events.append(AgentMessage(ts=updated, text=str(header["subtitle"])))
+            events.append(TurnEnded(ts=updated, reason=TURN_COMPLETED, duration_ms=0))
+        if state[1]:
+            events.append(ApprovalPending(ts=updated, pending=True, text=APPROVAL_TEXT))
+        return events
+
+
+def _branch(data: dict[str, Any]) -> str | None:
+    """The most recently used branch of the chat's tracked Git repositories."""
+    branches = [
+        branch
+        for repo in data.get("trackedGitRepos") or [] if isinstance(repo, dict)
+        for branch in repo.get("branches") or [] if isinstance(branch, dict) and isinstance(branch.get("branchName"), str)
+    ]
+    latest = max(branches, key=lambda branch: branch.get("lastInteractionAt") or 0, default=None)
+    return clip(latest["branchName"], 160) if latest else None
+
+
 class CursorAdapter:
     """Finds Cursor agent transcripts and opens cursors on them (implements `HarnessAdapter`)."""
 
@@ -314,6 +387,8 @@ class CursorAdapter:
                 "created": _epoch_ms(data.get("createdAt") if isinstance(data, dict) else None),
                 "updated": _epoch_ms(data.get("lastUpdatedAt") if isinstance(data, dict) else None),
                 "pending": bool(data.get("hasBlockingPendingActions")) if isinstance(data, dict) else False,
+                "subtitle": clip(data["subtitle"], 200) if isinstance(data, dict) and isinstance(data.get("subtitle"), str) else "",
+                "branch": _branch(data) if isinstance(data, dict) else None,
                 "archived": bool(archived),
                 "subagent": bool(subagent),
             }
@@ -347,8 +422,21 @@ class CursorAdapter:
                 continue
             cwd = header.get("cwd") or decode_slug(path.parents[2].name)
             yield SessionRef(harness=self.name, session_id=path.stem, path=path, cwd=cwd)
+        transcripts = {path.stem for _, path in found}
+        for composer_id, header in self._headers.items():
+            if composer_id in transcripts or header["archived"] or (header["subagent"] and not self.include_subagents):
+                continue
+            updated = header["updated"]
+            # No activity time, or neither a title nor a pending approval: a draft or a cleaned-up chat.
+            if updated is None or not (header["title"] or header["pending"]):
+                continue
+            if cutoff is not None and updated.timestamp() < cutoff:
+                continue
+            yield SessionRef(harness=self.name, session_id=composer_id, cwd=header["cwd"])
 
-    def open(self, ref: SessionRef) -> CursorCursor:
+    def open(self, ref: SessionRef) -> CursorCursor | HeaderCursor:
+        if ref.path is None:
+            return HeaderCursor(ref, header=lambda: self._headers.get(ref.session_id, {}))
         return CursorCursor(
             ref,
             self.title(ref),
@@ -359,12 +447,20 @@ class CursorAdapter:
     def state_token(self, ref: SessionRef) -> str:
         """Changes when Cursor's own state for the session changes (activity, pending approvals)."""
         header = self._headers.get(ref.session_id, {})
+        modified = self.mtime_ns(ref)
+        idle = (time.time() - modified / 1e9) if modified is not None else 0.0
+        # These flip with time alone, so a header-only chat stops working and an abandoned turn closes without a write.
+        return f"{header.get('updated')}:{header.get('pending', False)}:{idle > QUIET_SECONDS}:{idle > ABANDONED_SECONDS}"
+
+    def mtime_ns(self, ref: SessionRef) -> int | None:
+        """Last activity: the transcript's mtime, or Cursor's `lastUpdatedAt` for a header-only chat."""
+        if ref.path is None:
+            updated = self._headers.get(ref.session_id, {}).get("updated")
+            return int(updated.timestamp() * 1e9) if updated is not None else None
         try:
-            idle = ref.path is not None and time.time() - ref.path.stat().st_mtime > ABANDONED_SECONDS
+            return ref.path.stat().st_mtime_ns
         except OSError:
-            idle = False
-        # `idle` flips once an hour after the last write, so an abandoned turn is closed without a new write.
-        return f"{header.get('updated')}:{header.get('pending', False)}:{idle}"
+            return None
 
     def title(self, ref: SessionRef) -> str:
         return str(self._headers.get(ref.session_id, {}).get("title") or "")

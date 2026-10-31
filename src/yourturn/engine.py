@@ -67,6 +67,7 @@ from yourturn.heuristics import (
     is_check_command,
     is_quiet,
     needs_you,
+    normalize_text,
     parse_answer,
     parse_recap,
 )
@@ -232,7 +233,7 @@ class TurnFolder:
 
     def _prompt(self, at: str, turn: Turn, text: str) -> None:
         for decision in self._pending():
-            decision.chosen = clip(text, 120)
+            decision.chosen = normalize_text(text)
         turn.prompt = turn.prompt or clip(text, 160)
         self._step(at, "user", "You", text)
 
@@ -270,7 +271,7 @@ class TurnFolder:
             "agent",
             clip(str(args.get("question", ""))),
             options,
-            clip(str(args.get("chosen", "")), 120),
+            normalize_text(str(args.get("chosen", ""))),
             clip(str(args.get("reason", ""))),
             turn.index,
         )
@@ -940,7 +941,9 @@ class SessionHub:
 
     @classmethod
     def _mtime_ns(cls, tracked: _Tracked) -> int | None:
-        return cls._path_mtime(tracked.ref.path)
+        # Adapters whose sessions have no file of their own (header-only Cursor chats) report activity time.
+        mtime_of = getattr(tracked.adapter, "mtime_ns", None)
+        return mtime_of(tracked.ref) if callable(mtime_of) else cls._path_mtime(tracked.ref.path)
 
     def refresh(self) -> list[SessionSnapshot]:
         with self._lock:
