@@ -5,7 +5,8 @@ Events come from `~/.cursor/projects/<slug>/agent-transcripts/<composerId>/<comp
 carry no tool results and no timestamps except the `<timestamp>` tag in each user prompt, so
 commands have no exit code and every event is stamped with its turn's prompt time.
 
-Title, workspace folder, archived and sub-agent flags come from the `composerHeaders` table of
+Title, workspace folder, archived and sub-agent flags, and whether the composer is blocked on an
+approval (`hasBlockingPendingActions`) come from the `composerHeaders` table of
 Cursor's `globalStorage/state.vscdb`, opened with `mode=ro` (never written, WAL included).
 """
 
@@ -18,7 +19,7 @@ import shlex
 import sqlite3
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -27,6 +28,7 @@ from urllib.parse import quote
 
 from yourturn.harness.base import (
     AgentMessage,
+    ApprovalPending,
     CommandRun,
     Event,
     FilesEdited,
@@ -46,6 +48,7 @@ TAG_BLOCK = re.compile(r"<([\w-]+)>.*?</\1>", re.DOTALL)
 USER_QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.DOTALL)
 PROMPT_TIME = re.compile(r"<timestamp>\s*(.*?)\s*</timestamp>", re.DOTALL)
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.MULTILINE)
+APPROVAL_TEXT = "Approve pending action in Cursor"
 UTC_OFFSET = re.compile(r"\(UTC([+-])(\d{1,2})(?::(\d\d))?\)")
 
 
@@ -112,16 +115,25 @@ def _edited_paths(name: str, arguments: object) -> tuple[str, ...]:
 class CursorCursor(CodexCursor):
     """Incremental reader over one Cursor agent transcript (implements `EventCursor`)."""
 
-    def __init__(self, ref: SessionRef, title: str = "", created: datetime | None = None) -> None:
+    def __init__(
+        self,
+        ref: SessionRef,
+        title: str = "",
+        created: datetime | None = None,
+        header: Callable[[], dict[str, Any]] | None = None,
+    ) -> None:
         super().__init__(ref)
         self._title = title
         self._created = created
+        # The adapter's latest composerHeaders row for this session (refreshed on each discover).
+        self._header = header or dict
         self._clear()
 
     def _clear(self) -> None:
         self._meta_sent = False
         self._ts: datetime | None = None
         self._asked: list[str] = []
+        self._approval = False
 
     def reset(self) -> None:
         super().reset()
@@ -163,6 +175,12 @@ class CursorCursor(CodexCursor):
                 events[-1] = dataclasses.replace(events[-1], ts=ended)
             except OSError:
                 pass
+        # The approval flag changes in Cursor's database, not in the transcript: report each flip.
+        header = self._header()
+        pending = bool(header.get("pending"))
+        if pending != self._approval:
+            self._approval = pending
+            events.append(ApprovalPending(ts=header.get("updated"), pending=pending, text=APPROVAL_TEXT))
         return events
 
     def _events(self, record: dict[str, Any]) -> list[Event]:
@@ -231,6 +249,7 @@ class CursorAdapter:
         has_checks=True,
         live_tail=True,
         turn_boundaries=True,
+        approval_prompts=True,
         structured_questions=True,
     )
 
@@ -274,6 +293,8 @@ class CursorAdapter:
                 "title": str(data.get("name") or "") if isinstance(data, dict) else "",
                 "cwd": uri.get("fsPath") if isinstance(uri, dict) and isinstance(uri.get("fsPath"), str) else None,
                 "created": _epoch_ms(data.get("createdAt") if isinstance(data, dict) else None),
+                "updated": _epoch_ms(data.get("lastUpdatedAt") if isinstance(data, dict) else None),
+                "pending": bool(data.get("hasBlockingPendingActions")) if isinstance(data, dict) else False,
                 "archived": bool(archived),
                 "subagent": bool(subagent),
             }
@@ -303,7 +324,17 @@ class CursorAdapter:
             yield SessionRef(harness=self.name, session_id=path.stem, path=path, cwd=cwd)
 
     def open(self, ref: SessionRef) -> CursorCursor:
-        return CursorCursor(ref, self.title(ref), self._headers.get(ref.session_id, {}).get("created"))
+        return CursorCursor(
+            ref,
+            self.title(ref),
+            self._headers.get(ref.session_id, {}).get("created"),
+            header=lambda: self._headers.get(ref.session_id, {}),
+        )
+
+    def state_token(self, ref: SessionRef) -> str:
+        """Changes when Cursor's own state for the session changes (activity, pending approvals)."""
+        header = self._headers.get(ref.session_id, {})
+        return f"{header.get('updated')}:{header.get('pending', False)}"
 
     def title(self, ref: SessionRef) -> str:
         return str(self._headers.get(ref.session_id, {}).get("title") or "")

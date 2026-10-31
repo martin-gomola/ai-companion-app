@@ -127,6 +127,15 @@ class ContextCompacted:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ApprovalPending:
+    """The harness is blocked on the user approving an action (`pending`), or no longer is."""
+
+    ts: datetime | None = None
+    pending: bool = True
+    text: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Usage:
     """Token usage as reported by the harness.
 
@@ -156,6 +165,7 @@ Event: TypeAlias = (
     | ToolCall
     | Reasoning
     | ContextCompacted
+    | ApprovalPending
     | Usage
 )
 
@@ -170,6 +180,7 @@ EVENT_TYPES: tuple[type, ...] = (
     ToolCall,
     Reasoning,
     ContextCompacted,
+    ApprovalPending,
     Usage,
 )
 

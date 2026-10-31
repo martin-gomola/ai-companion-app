@@ -3,6 +3,7 @@
 from yourturn.harness.base import (
     EVENT_TYPES,
     AgentMessage,
+    ApprovalPending,
     CommandRun,
     ContextCompacted,
     Event,
@@ -22,6 +23,7 @@ from yourturn.harness.codex import CodexAdapter, CodexCursor
 __all__ = [
     "EVENT_TYPES",
     "AgentMessage",
+    "ApprovalPending",
     "CodexAdapter",
     "CodexCursor",
     "CommandRun",

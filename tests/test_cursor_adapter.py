@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from yourturn.app import create_app
 from yourturn.engine import SessionHub, TurnFolder
-from yourturn.harness.base import CommandRun, FilesEdited, Meta, ToolCall, TurnEnded, TurnStarted, UserMessage
+from yourturn.harness.base import ApprovalPending, CommandRun, FilesEdited, Meta, ToolCall, TurnEnded, TurnStarted, UserMessage
 from yourturn.harness.cursor import CursorAdapter, CursorCursor, decode_slug, parse_prompt_time, prompt_text
 from yourturn.model import SessionRef
 
@@ -82,8 +82,9 @@ def _database(user_dir: Path, rows: list[tuple[str, int, int, dict[str, Any]]]) 
     return path
 
 
-def _header(name: str, cwd: str = CWD) -> dict[str, Any]:
-    return {"composerId": CID, "name": name, "createdAt": 1793430000000, "lastUpdatedAt": 1793430300000,
+def _header(name: str, cwd: str = CWD, *, pending: bool = False, updated: int = 1793430300000) -> dict[str, Any]:
+    return {"composerId": CID, "name": name, "createdAt": 1793430000000, "lastUpdatedAt": updated,
+            "hasBlockingPendingActions": pending,
             "workspaceIdentifier": {"id": "w1", "uri": {"fsPath": cwd, "path": cwd, "scheme": "file"}}}
 
 
@@ -237,3 +238,56 @@ def test_hub_and_api_serve_cursor_sessions(tmp_path: Path) -> None:
     assert data["turns"][-1]["outcome"] == "Fixed the bug."
     assert client.get(f"/api/threads/cursor:{ARCHIVED}").status_code == 404
     assert [entry["key"] for entry in client.get("/api/inbox").json()] == [f"cursor:{CID}"]
+
+
+# --- pending approvals (composerHeaders.hasBlockingPendingActions) -------------------------------
+
+
+def _set_header(user_dir: Path, value: dict[str, Any]) -> None:
+    """Simulate Cursor updating its own composer row (tests own this synthetic database)."""
+    with sqlite3.connect(user_dir / "globalStorage" / "state.vscdb") as connection:
+        connection.execute("UPDATE composerHeaders SET value = ? WHERE composerId = ?", (json.dumps(value), CID))
+    connection.close()
+
+
+def test_cursor_reports_each_approval_flip() -> None:
+    header: dict[str, Any] = {}
+    ref = SessionRef(harness="cursor", session_id=CID, path=Path("/missing.jsonl"))
+    cursor = CursorCursor(ref, header=lambda: header)
+    assert cursor.read_new() == []
+    header.update(pending=True)
+    (event,) = cursor.read_new()
+    assert isinstance(event, ApprovalPending) and (event.pending, event.text) == (True, "Approve pending action in Cursor")
+    assert cursor.read_new() == []
+    header.update(pending=False)
+    (event,) = cursor.read_new()
+    assert isinstance(event, ApprovalPending) and event.pending is False
+
+
+def test_pending_approval_needs_you_until_cursor_clears_it(tmp_path: Path) -> None:
+    home, user_dir = tmp_path / "cursor", tmp_path / "User"
+    _write(home, [user("Fix the bug"), assistant(text("All done.")), ENDED])
+    _database(user_dir, [(CID, 0, 0, _header("Fix parser", pending=True))])
+    codex_home = tmp_path / "codex"
+    (codex_home / "sessions").mkdir(parents=True)
+    hub = SessionHub.for_codex_home(codex_home, scan_ttl=0, cursor_home=home, cursor_user_dir=user_dir)
+    assert CursorAdapter.capabilities.approval_prompts is True
+
+    (row,) = hub.inbox_dicts()
+    assert (row["status"], row["next_kind"], row["next_text"], row["needs_you"]) == (
+        "waiting", "approve", "Approve pending action in Cursor", True)
+    assert row["attention_key"]
+    detail = hub.detail_dict(f"cursor:{CID}")
+    assert detail is not None and (detail["status"], detail["needs_you"], detail["turns"][-1]["next_kind"]) == ("waiting", True, "approve")
+    assert detail["steps"][-1]["title"] == "Approve pending action in Cursor"
+    (snapshot,) = hub.snapshots()
+    assert (snapshot.attention.value, snapshot.next_step.kind.value) == ("needs_you", "approve")
+    waiting = hub.inbox_fingerprint()
+
+    # The user approves in Cursor: only its database changes, the transcript does not.
+    _set_header(user_dir, _header("Fix parser", pending=False, updated=1793430400000))
+    assert hub.inbox_fingerprint() != waiting
+    (row,) = hub.inbox_dicts()
+    assert (row["status"], row["next_kind"], row["needs_you"], row["attention_key"]) == ("done", "unknown", False, "")
+    detail = hub.detail_dict(f"cursor:{CID}")
+    assert detail is not None and (detail["status"], detail["needs_you"]) == ("done", False)

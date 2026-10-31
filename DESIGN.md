@@ -5,10 +5,10 @@
 Active design contract, revised 2026-10-30. The approved architectural light/dark
 references replace the earlier iOS grouped-list and automatic kanban presentation.
 
-Your Turn helps an engineer who runs several Codex chats see which chats need them, what each
-one produced, and what to do next, then open that chat in Codex. It is a read-only local web page,
-usually open in a narrow browser window beside the Codex app. It is not a native app and has no
-Codex controls.
+Your Turn helps an engineer who runs several coding-agent chats (Codex, Claude Code, Cursor) see
+which chats need them, what each one produced, and what to do next, then act on that chat in its
+own app. It is a read-only local web page, usually open in a narrow browser window beside the
+agent's app. It is not a native app and has no agent controls.
 
 Agents are no longer the slow part of the loop; the person running them is. The inbox and chat page
 answer four questions in this order:
@@ -18,7 +18,7 @@ answer four questions in this order:
 | Notice | Does it need me? | Status, Needs you count, alerts |
 | Understand | What happened? | Recap, outcome, changed files |
 | Judge | Can I trust it? | Checks, Check failed, Edits unchecked |
-| Act | What do I do next? | Next step, Open in Codex |
+| Act | What do I do next? | Next step, the chat's action (Open in Codex, Copy resume command, Open in Cursor) |
 
 A feature belongs only if it shortens one of these steps. Controlling agents, and dashboards read
 for their own sake, are out of scope.
@@ -94,7 +94,7 @@ for their own sake, are out of scope.
   full chat page with its filter return scope preserved.
 - Detail content scrolls independently and stays top-aligned. Native dialogs take precedence over
   pane Escape handling. Gachapon animation and parallax remain deferred; scene composition stays steady.
-- The status card sizes to its complete content; the primary Open in Codex action must never be
+- The status card sizes to its complete content; the primary chat action must never be
   clipped by a grid track. Compact-list filters stay pinned, and row scroll margins account for them.
 - Working rows use their status or quiet label without generic per-item coaching text. Actual
   activity belongs in the opened chat; do not add invented progress just to fill a preview line.
@@ -114,8 +114,9 @@ for their own sake, are out of scope.
 - A sticky row with the back link on the left and the same live-state and theme group on the
   right. Below it, a large title (the chat name)
   and a subtitle with the project and the time of the last recorded event.
-- The status card comes first. Its header shows the status glyph and label and the "Open in Codex"
-  action. It is the only filled accent button on the page, and it is filled only when the chat
+- The status card comes first. Its header shows the status glyph and label and the chat's action:
+  "Open in Codex" (deep link), "Copy resume command" for Claude Code (copies `claude --resume <id>`
+  and briefly confirms), or "Open in Cursor" (opens the project folder). It is the only filled accent button on the page, and it is filled only when the chat
   needs the user or a check failed; otherwise it is an outlined secondary link. Its body depends on state:
   - Needs you: the action label and the request, with recorded options as a plain read-only list,
     then the reminder control and its note ("Only affects this browser's inbox").
@@ -124,7 +125,9 @@ for their own sake, are out of scope.
     it is still running, and a new turn never shows the previous turn's step. When the chat is
     quiet, the title reads "Working · quiet", the label reads Quiet (in the needs-you color), and a
     note under the step gives the clock time and age of the last activity and says the chat may be
-    waiting for approval in Codex or running a long command.
+    waiting for approval in the chat's app (Codex, Claude Code, or Cursor) or running a long command.
+  - Approval (Cursor only, which reports it): the chat is in Needs you with the action label
+    Approve and "Approve pending action in Cursor"; it leaves Needs you when Cursor clears the flag.
   - Done: "No further action was requested", or "No next action was recorded" when the answer
     skipped the handoff format. When a check in the latest turn failed, either line adds ", but a
     check failed" in the danger color.

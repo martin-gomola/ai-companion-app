@@ -28,6 +28,7 @@ from typing import Any
 from yourturn.config import DEFAULT_HISTORY_DAYS
 from yourturn.harness.base import (
     AgentMessage,
+    ApprovalPending,
     CommandRun,
     ContextCompacted,
     Event,
@@ -159,6 +160,9 @@ class TurnFolder:
         self._last_message: tuple[int, str, str, Step] | None = None  # (turn, at, text, step)
         self._last_agent_text = ""
         self._last_edit_at: datetime | None = None
+        # A pending approval overlays the latest turn's state until the harness clears it.
+        self.approval = ""
+        self._attention_before = ""
 
     @property
     def id(self) -> str:
@@ -297,6 +301,8 @@ class TurnFolder:
                 self._step(at, "thinking", event.text)
         elif isinstance(event, ContextCompacted):
             self._step(at, "turn", "Context compacted")
+        elif isinstance(event, ApprovalPending):
+            self._approval(at, event)
         elif isinstance(event, CommandRun):
             self._run(at, self._turn(at), event.command, event.exit_code)
         elif isinstance(event, FilesEdited):
@@ -384,6 +390,24 @@ class TurnFolder:
         if self.status == "waiting" and not self._pending():
             self.status = "working"
 
+    def _approval(self, at: str, event: ApprovalPending) -> None:
+        if event.pending and not self.approval:
+            self.approval = clip(event.text, 160) or "Approve the pending action"
+            self._attention_before = self.attention_key
+            self._attention(at, "approve", self.approval)
+            self._step(at, "question", self.approval, status="waiting")
+        elif not event.pending and self.approval:
+            self.approval = ""
+            self.attention_key = self._attention_before
+
+    def _status(self) -> str:
+        return "waiting" if self.approval else self.status
+
+    def _next(self, turn: Turn | None) -> tuple[str, str]:
+        if self.approval:
+            return "approve", self.approval
+        return (turn.next_kind, turn.next_text) if turn else ("unknown", "")
+
     def _usage(self, at: str, event: Usage) -> None:
         total = (
             dict(event.total)
@@ -434,15 +458,16 @@ class TurnFolder:
         """The file-content part of an inbox row; `needs_you` is judged on exactly these keys."""
         turn = self.turns[-1] if self.turns else None
         pending = next((d for d in reversed(self.decisions) if d.source == "asked" and d.chosen is None), None)
+        next_kind, next_text = self._next(turn)
         row: dict[str, Any] = {
             "id": self.id,
             "cwd": self.cwd,
-            "status": self.status,
+            "status": self._status(),
             "updated_at": iso(mtime_ns / 1e9) if mtime_ns is not None else self.updated_at,
             "turn_ended_at": turn.ended_at if turn else "",
             "outcome": turn.outcome if turn else "",
-            "next_kind": turn.next_kind if turn else "unknown",
-            "next_text": turn.next_text if turn else "",
+            "next_kind": next_kind,
+            "next_text": next_text,
             "question": pending.question if pending else "",
             "options": pending.options if pending else [],
             "attention_key": self.attention_key,
@@ -454,7 +479,7 @@ class TurnFolder:
     def inbox_row(self, mtime_ns: int | None = None) -> dict[str, Any]:
         """A full inbox row: `inbox_fields` plus `quiet`, `project` and `title`."""
         row = self.inbox_fields(mtime_ns)
-        row["quiet"] = is_quiet(self.status, mtime_ns if mtime_ns is not None else _ns(self._updated_ts))
+        row["quiet"] = is_quiet(self._status(), mtime_ns if mtime_ns is not None else _ns(self._updated_ts))
         row["project"] = self.project
         row["title"] = self.title
         return row
@@ -462,6 +487,8 @@ class TurnFolder:
     def to_dict(self) -> dict[str, Any]:
         """The thread view (`/api/threads/<id>` minus `quiet`)."""
         turns = [asdict(turn) for turn in self.turns]
+        if turns and self.approval:
+            turns[-1]["next_kind"], turns[-1]["next_text"] = self._next(None)
         last = turns[-1] if turns else {"next_kind": "unknown", "next_text": ""}
         return {
             "id": self.id,
@@ -472,7 +499,7 @@ class TurnFolder:
             "subagent": self.subagent,
             "started_at": self.started_at,
             "updated_at": self.updated_at,
-            "status": self.status,
+            "status": self._status(),
             "context_used": self.context_used,
             "context_window": self.context_window,
             "token_usage": dict(self.token_usage),
@@ -489,7 +516,7 @@ class TurnFolder:
             "turns": turns,
             "steps": [asdict(step) for step in self.steps],
             "decisions": [asdict(decision) for decision in self.decisions],
-            "needs_you": needs_you({**last, "status": self.status}),
+            "needs_you": needs_you({**last, "status": self._status()}),
         }
 
     # -- typed views -------------------------------------------------------------------------------
@@ -506,7 +533,7 @@ class TurnFolder:
         else:
             attention = Attention.QUIET
         try:
-            phase = Phase(self.status)
+            phase = Phase(self._status())
         except ValueError:
             phase = Phase.IDLE
         return SessionSnapshot(
@@ -574,11 +601,11 @@ class TurnFolder:
         if turn is None:
             return NextStep()
         try:
-            kind = NextKind(turn.next_kind)
+            kind = NextKind(row["next_kind"])
         except ValueError:
             kind = NextKind.UNKNOWN
-        reason = "The agent asked a question" if row["question"] else turn.outcome
-        return NextStep(kind=kind, label=turn.next_text, reason=reason)
+        reason = "The agent asked a question" if row["question"] else "The agent is waiting for approval" if self.approval else turn.outcome
+        return NextStep(kind=kind, label=row["next_text"], reason=reason)
 
 
 def _json_object(raw: str | None) -> dict[str, Any]:
@@ -1034,7 +1061,10 @@ class SessionHub:
                     sig = signature(tracked.ref.path) if tracked.ref.path else (0, 0)
                 except OSError:
                     continue
-                parts.append(f"{tracked.ref.key}:{sig}:{is_quiet(tracked.folder.status, sig[1])}")
+                # Adapters whose state lives outside the session file (Cursor approvals) add a token for it.
+                token_of = getattr(tracked.adapter, "state_token", None)
+                token = token_of(tracked.ref) if callable(token_of) else ""
+                parts.append(f"{tracked.ref.key}:{sig}:{token}:{is_quiet(tracked.folder._status(), sig[1])}")
         return "|".join(parts)
 
     def state(self, thread_id: str) -> TurnFolder | None:
@@ -1090,7 +1120,7 @@ class SessionHub:
             data = tracked.folder.to_dict()
             data["title"] = data["title"] or tracked.folder._first_prompt()
             mtime = self._mtime_ns(tracked)
-            data["quiet"] = is_quiet(tracked.folder.status, mtime) if mtime is not None else False
+            data["quiet"] = is_quiet(data["status"], mtime) if mtime is not None else False
             return _keyed(data, tracked.adapter, tracked.ref)
 
 

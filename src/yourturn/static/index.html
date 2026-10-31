@@ -203,7 +203,7 @@ SOFTWARE.
             <button type="button" class="chip" data-filter="key" aria-pressed="true">Key steps</button>
             <button type="button" class="chip" data-filter="all" aria-pressed="false">Everything</button>
           </div>
-          <p class="empty" id="timeline-empty">Activity appears as Codex works.</p>
+          <p class="empty" id="timeline-empty">Activity appears as the agent works.</p>
           <ol class="timeline" id="timeline"></ol>
         </details>
         <details class="list-row disclosure-row" id="tools-wrap">
@@ -243,7 +243,7 @@ SOFTWARE.
     <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>
     <tbody>
       <tr><th scope="row">Needs you</th><td>A question or action is waiting for you.</td></tr>
-      <tr><th scope="row">Working</th><td>Codex is working.</td></tr>
+      <tr><th scope="row">Working</th><td>The agent is working.</td></tr>
       <tr><th scope="row">New results</th><td>Unseen results from the last 24 hours. Opening a recap marks it seen.</td></tr>
       <tr><th scope="row">Earlier</th><td>Other chats in this inbox, including dismissed reminders. Not a full history or archive.</td></tr>
     </tbody>
@@ -251,14 +251,14 @@ SOFTWARE.
   <div class="help-details">
     <details><summary>Reminders and quiet chats</summary>
       <p>Dismissing a reminder changes only this browser’s inbox. It does not answer a question or approve an action.</p>
-      <p>“Quiet” means no recent activity was recorded. A command may still be running, or Codex may be waiting for approval. It is a hint, not a separate status.</p>
+      <p>“Quiet” means no recent activity was recorded. A command may still be running, or the agent may be waiting for approval in its app. It is a hint, not a separate status. Cursor reports pending approvals, so a Cursor chat waiting for one is in Needs you instead.</p>
     </details>
     <details><summary>Included chats</summary>
       <p>Chats updated in the last {{HISTORY_DAYS}} days. Each section shows 10 chats at first; choose Load more to see the next 10. Sub-agent chats are omitted.</p>
     </details>
     <details><summary>Connection and privacy</summary>
       <p><strong>Live:</strong> receiving local updates. <strong>Reconnecting:</strong> check the local server with <code>make status</code>.</p>
-      <p>Your Turn reads <code>~/.codex/sessions</code> on this machine. It does not change those files or control agents.</p>
+      <p>Your Turn reads <code>~/.codex/sessions</code>, <code>~/.claude/projects</code>, <code>~/.cursor/projects</code> and Cursor’s <code>state.vscdb</code> (read-only) on this machine. It does not change those files or control agents.</p>
     </details>
   </div>
 </dialog>
