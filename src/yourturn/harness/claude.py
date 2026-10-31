@@ -52,6 +52,7 @@ ASK_TOOL = "AskUserQuestion"
 WANTED = (b'"user"', b'"assistant"', b'"summary"', b'"custom-title"')
 HEAD_LINES = 50
 INTERRUPTED = "[Request interrupted by user"
+LOCAL_OUTPUT = "<local-command-std"
 # Claude Code wraps slash commands, hook output and reminders in tags; none of it is what the user typed.
 INJECTED = re.compile(
     r"<(system-reminder|task-notification|command-message|local-command-[\w-]+|user-prompt-submit-hook)\b[^>]*>.*?</\1>",
@@ -184,7 +185,10 @@ class ClaudeCursor(CodexCursor):
             if isinstance(block, dict) and block.get("type") == "tool_result":
                 events.extend(self._result(ts, block))
         text = prompt_text(content)
-        if text.startswith(INTERRUPTED):
+        if LOCAL_OUTPUT in str(content):
+            # A built-in slash command (/model, /clear) answered locally: its turn is over, no agent reply follows.
+            events.append(TurnEnded(ts=ts, reason=TURN_COMPLETED))
+        elif text.startswith(INTERRUPTED):
             events.append(TurnEnded(ts=ts, reason="interrupted"))
         elif text:
             events += [TurnStarted(ts=ts), UserMessage(ts=ts, text=text)]

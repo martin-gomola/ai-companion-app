@@ -322,7 +322,7 @@ TURN_KEYS = {
 CHECK_KEYS = {"command", "exit_code", "at"}
 STEP_KEYS = {"at", "kind", "title", "detail", "status", "turn"}
 DECISION_KEYS = {"at", "source", "question", "options", "chosen", "reason", "turn"}
-EXTRA_KEYS = {"harness", "key"}
+EXTRA_KEYS = {"harness", "key", "handoff"}
 
 
 def _rich_records() -> list[dict[str, Any]]:

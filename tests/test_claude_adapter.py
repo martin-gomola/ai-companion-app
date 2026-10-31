@@ -222,6 +222,15 @@ def test_injected_user_content_is_not_a_prompt(tmp_path: Path) -> None:
     assert (list(folder.turns), list(folder.steps)) == ([], [])
 
 
+def test_local_slash_command_is_a_finished_turn(tmp_path: Path) -> None:
+    folder = _fold(_write(tmp_path, [
+        user(1, "<command-name>/model</command-name>\n<command-message>model</command-message>"),
+        user(2, "<local-command-stdout>Set model to opus</local-command-stdout>"),
+    ]))
+    (turn,) = folder.turns
+    assert (turn.prompt, turn.status, folder.status) == ("/model", "done", "done")
+
+
 def test_tail_read_keeps_header_and_appends_incrementally(tmp_path: Path) -> None:
     records = _turn()
     path = _write(tmp_path, records)

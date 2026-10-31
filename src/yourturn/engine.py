@@ -761,9 +761,11 @@ class _Tracked:
         self.truncations = int(getattr(cursor, "truncations", 0))
 
 
-def _keyed(row: dict[str, Any], native_id: str) -> dict[str, Any]:
-    row["harness"] = Harness.CODEX.value
-    row["key"] = str(SessionKey(Harness.CODEX, native_id))
+def _keyed(row: dict[str, Any], adapter: HarnessAdapter | None, ref: SessionRef) -> dict[str, Any]:
+    """Add the harness, the full `<harness>:<native_id>` key and the adapter's handoff to an API dict."""
+    row["harness"] = ref.harness
+    row["key"] = str(ref.key)
+    row["handoff"] = asdict(adapter.handoff(ref, row.get("cwd") or None)) if adapter else asdict(Handoff())
     return row
 
 
@@ -826,7 +828,7 @@ class SessionHub:
         if self._scanned_at is not None and now - self._scanned_at < self.rescan_seconds:
             return
         seen: set[SessionKey] = set()
-        for adapter in self.adapters:
+        for adapter in self._tracked_adapters():
             try:
                 refs = list(adapter.discover(self.root))
             except OSError:
@@ -843,6 +845,12 @@ class SessionHub:
         for stale in set(self._tracked) - seen:
             del self._tracked[stale]
         self._scanned_at = now
+
+    def _tracked_adapters(self) -> list[HarnessAdapter]:
+        # With a catalog, Codex sessions are served by it (tail-cached inbox rows); track the rest.
+        if self.catalog is None:
+            return self.adapters
+        return [adapter for adapter in self.adapters if not isinstance(adapter, CodexAdapter)]
 
     def _track(self, adapter: HarnessAdapter, ref: SessionRef) -> _Tracked:
         cursor = adapter.open(ref)
@@ -948,7 +956,26 @@ class SessionHub:
             rows = [row for path in chats if (row := self._inbox_row(catalog, path, titles, limit))]
             for stale in set(self._inbox) - set(chats):
                 del self._inbox[stale]
+            rows += [self._other_row(tracked) for tracked in self._others(history_days, pump=True)]
+            # Stable: Codex rows keep their newest-file-first order among equal timestamps.
+            rows.sort(key=lambda row: row["updated_at"], reverse=True)
             return rows
+
+    def _others(self, history_days: int, *, pump: bool) -> list[_Tracked]:
+        """Non-Codex sessions written to within the history window, read up to date when `pump`."""
+        self._discover()
+        cutoff = (time.time() - history_days * 86400) * 1e9
+        recent = [tracked for tracked in self._tracked.values() if (self._mtime_ns(tracked) or 0) >= cutoff]
+        if pump:
+            for tracked in recent:
+                self._pump(tracked)
+        return recent
+
+    def _other_row(self, tracked: _Tracked) -> dict[str, Any]:
+        folder = tracked.folder
+        row = folder.inbox_row(self._mtime_ns(tracked))
+        row["title"] = row["title"] or folder._first_prompt()
+        return _keyed(row, tracked.adapter, tracked.ref)
 
     def _inbox_row(self, catalog: CodexCatalog, path: Path, titles: dict[str, str], limit: int | None) -> dict[str, Any] | None:
         try:
@@ -971,7 +998,8 @@ class SessionHub:
             "project": catalog.project_name(fields["cwd"]),
             "title": titles.get(thread_id_of(path), ""),
         }
-        return _keyed(row, fields["id"])
+        ref = SessionRef(harness=Harness.CODEX.value, session_id=fields["id"], path=path, cwd=fields["cwd"] or None)
+        return _keyed(row, self._codex(), ref)
 
     def inbox_fingerprint(self, history_days: int = DEFAULT_HISTORY_DAYS) -> str:
         """Changes when a chat file changes, and when a working chat turns quiet without any write."""
@@ -986,6 +1014,12 @@ class SessionHub:
                 cached = self._inbox.get(path)
                 quiet = bool(cached) and is_quiet(cached[1]["status"], sig[1])
                 parts.append(f"{path.name}:{sig}:{quiet}")
+            for tracked in self._others(history_days, pump=False):
+                try:
+                    sig = signature(tracked.ref.path) if tracked.ref.path else (0, 0)
+                except OSError:
+                    continue
+                parts.append(f"{tracked.ref.key}:{sig}:{is_quiet(tracked.folder.status, sig[1])}")
         return "|".join(parts)
 
     def state(self, thread_id: str) -> TurnFolder | None:
@@ -1015,21 +1049,34 @@ class SessionHub:
         return state
 
     def detail_dict(self, key: SessionKey | str) -> dict[str, Any] | None:
-        """The `/api/threads/<id>` JSON; serialized under the lock before another reader feeds the tail."""
+        """The `/api/threads/<key>` JSON; serialized under the lock before another reader feeds the source."""
         parsed = _parse_key(key)
-        if parsed is None or parsed.harness is not Harness.CODEX:
+        if parsed is None:
             return None
         native = parsed.native_id
         with self._lock:
-            state = self._read_state(native)
-            if state is None:
+            if parsed.harness is Harness.CODEX:
+                state = self._read_state(native)
+                if state is None:
+                    return None
+                path = self._details[native].path
+                data = state.to_dict()
+                try:
+                    data["quiet"] = is_quiet(state.status, signature(path)[1])
+                except OSError:
+                    data["quiet"] = False
+                ref = SessionRef(harness=Harness.CODEX.value, session_id=native, path=path, cwd=state.cwd or None)
+                return _keyed(data, self._codex(), ref)
+            self._discover()
+            tracked = self._tracked.get(parsed)
+            if tracked is None:
                 return None
-            data = state.to_dict()
-            try:
-                data["quiet"] = is_quiet(state.status, signature(self._details[native].path)[1])
-            except OSError:
-                data["quiet"] = False
-            return _keyed(data, native)
+            self._pump(tracked)
+            data = tracked.folder.to_dict()
+            data["title"] = data["title"] or tracked.folder._first_prompt()
+            mtime = self._mtime_ns(tracked)
+            data["quiet"] = is_quiet(tracked.folder.status, mtime) if mtime is not None else False
+            return _keyed(data, tracked.adapter, tracked.ref)
 
 
 def _parse_key(key: SessionKey | str) -> SessionKey | None:

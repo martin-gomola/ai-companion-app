@@ -131,6 +131,17 @@ function chatName(chat) {
   return chat.title || `Untitled chat · ${chat.cwd.split("/").pop() || chat.id.slice(0, 8)}`;
 }
 
+// The full `<harness>:<id>` key routes any harness; older payloads only had the Codex id.
+function chatKey(chat) {
+  return chat.key || chat.id;
+}
+
+function isChat(chat, id) {
+  return id === chatKey(chat) || id === chat.id;
+}
+
+const HARNESS_LABEL = { codex: "Codex", claude: "Claude", cursor: "Cursor" };
+
 function projectName(chat) {
   return chat.project || chat.cwd.split("/").pop() || "Unassigned";
 }
@@ -195,11 +206,11 @@ function renderRow(chat) {
   const unread = isNewResult(chat);
   const item = el("li");
   const link = el("a", "row");
-  link.href = `/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`;
+  link.href = `/?thread=${encodeURIComponent(chatKey(chat))}${inboxReturn}`;
   link.dataset.status = state;
-  link.dataset.id = chat.id;
+  link.dataset.id = chatKey(chat);
   link.dataset.unread = String(unread);
-  if (chat.id === openId) link.setAttribute("aria-current", "true");
+  if (isChat(chat, openId)) link.setAttribute("aria-current", "true");
   const glyph = el("span", "glyph");
   glyph.append(icon(status.icon));
   if (state === "working") syncSpin(glyph.querySelector("use"));
@@ -230,6 +241,7 @@ function renderRow(chat) {
   body.append(description);
   if (state === "waiting" && chat.question && chat.options?.length) body.append(el("span", "row-options", chat.options.join(" · ")));
   const project = el("span", "row-project");
+  if (HARNESS_LABEL[chat.harness]) project.append(el("span", "row-harness", HARNESS_LABEL[chat.harness]));
   project.append(el("span", "", projectName(chat)));
   project.title = projectName(chat);
   const chevron = icon("i-chevron");
@@ -358,7 +370,7 @@ function renderInbox(chats) {
   // once it has been shown open it stays open, so a new chat never folds the list under the reader.
   const foldable = !inboxStatus && shown.length > 1;
   if (!foldable && groups.get("earlier").length > 0 && !sectionOpen.has("earlier")) sectionOpen.set("earlier", true);
-  const openKey = shown.find(({ key }) => groups.get(key).some((chat) => chat.id === openId))?.key;
+  const openKey = shown.find(({ key }) => groups.get(key).some((chat) => isChat(chat, openId)))?.key;
   if (openKey && revealed !== `${openId}:${openKey}`) {
     revealed = `${openId}:${openKey}`;
     sectionOpen.set(openKey, true);
@@ -444,9 +456,9 @@ function notifyChanges(chats) {
         window.focus();
         notice.close();
         if (wideDetail.matches && !threadId) {
-          history.pushState(null, "", inboxUrl(inboxStatus, chat.id));
-          showPanel(chat.id);
-        } else location.assign(`/?thread=${encodeURIComponent(chat.id)}${inboxReturn}`);
+          history.pushState(null, "", inboxUrl(inboxStatus, chatKey(chat)));
+          showPanel(chatKey(chat));
+        } else location.assign(`/?thread=${encodeURIComponent(chatKey(chat))}${inboxReturn}`);
       };
     }
   }
@@ -469,6 +481,21 @@ async function copyThreadId() {
   }
 }
 $("copy-thread-id").addEventListener("click", copyThreadId);
+
+$("open-codex").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const command = button.dataset.copy;
+  if (!command) return;
+  event.preventDefault();
+  const text = button.firstChild;
+  try {
+    await navigator.clipboard.writeText(command);
+    text.textContent = "Resume command copied";
+  } catch {
+    text.textContent = command;  // Shown so it can be selected and copied by hand.
+  }
+  setTimeout(() => { if (button.dataset.copy === command) text.textContent = "Copy resume command"; }, 2000);
+});
 
 function renderSessionInfo(thread, turn) {
   if ($("session-thread-id").textContent !== thread.id) {
@@ -547,7 +574,14 @@ function renderStatus(thread, turn) {
   if (state === "working") syncSpin($("status-icon"));
   $("status-title").textContent = quiet ? "Working · quiet" : status.label;
   const failed = thread.status !== "working" && Boolean(turn?.checks.some((check) => check.exit_code !== null && check.exit_code !== 0));
-  $("open-codex").href = `codex://threads/${encodeURIComponent(thread.id)}`;
+  // Claude Code has no deep link: offer its resume command instead.
+  const resume = thread.harness === "claude" ? thread.handoff?.resume_command || "" : "";
+  const action = resume ? "Copy resume command" : "Open in Codex";
+  if ($("open-codex").dataset.copy !== resume) $("open-codex").firstChild.textContent = action;
+  $("open-codex").dataset.copy = resume;
+  $("open-codex").href = resume ? "#" : `codex://threads/${encodeURIComponent(thread.id)}`;
+  $("open-codex").setAttribute("aria-label", resume ? `${action}: ${resume}` : "Open in Codex (full chat)");
+  $("open-codex").title = resume;
   $("open-codex").hidden = false;
   $("open-codex").dataset.emphasis = state === "waiting" || failed ? "" : "quiet";
   $("status-body").hidden = false;

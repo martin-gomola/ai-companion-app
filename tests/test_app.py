@@ -170,3 +170,37 @@ def test_help_uses_configured_history(codex_home: Path) -> None:
     html = app.get("/").text
     assert "last 7 days" in html
     assert "{{HISTORY_DAYS}}" not in html
+
+
+def test_inbox_and_thread_serve_claude_next_to_codex(codex_home: Path, tmp_path: Path) -> None:
+    from test_claude_adapter import SID as CLAUDE, _turn, _write
+
+    claude_home = tmp_path / "claude"
+    _write(claude_home, _turn())
+    polls = iter([False, True])
+    app = TestClient(create_app(codex_home, claude_home=claude_home, should_stop=lambda: next(polls, True), poll_seconds=0),
+                     base_url="http://127.0.0.1")
+
+    inbox = app.get("/api/inbox").json()
+    rows = {entry["key"]: entry for entry in inbox}
+    assert set(rows) == {f"codex:{THREAD}", f"claude:{CLAUDE}"}
+    assert [entry["updated_at"] for entry in inbox] == sorted((entry["updated_at"] for entry in inbox), reverse=True)
+    claude = rows[f"claude:{CLAUDE}"]
+    assert (claude["harness"], claude["title"], claude["project"], claude["status"]) == ("claude", "Fix parser", "my-repo", "done")
+    assert claude["handoff"]["resume_command"] == f"claude --resume {CLAUDE}"
+    assert rows[f"codex:{THREAD}"]["handoff"]["resume_command"] == f"codex resume {THREAD}"
+
+    response = app.get(f"/api/threads/claude:{CLAUDE}")
+    assert response.status_code == 200, response.text
+    detail = response.json()
+    assert (detail["key"], detail["harness"], detail["model_provider"], detail["status"]) == (
+        f"claude:{CLAUDE}", "claude", "anthropic", "done")
+    assert detail["turns"][-1]["outcome"] == "Fixed the bug."
+    assert app.get(f"/api/threads/codex:{THREAD}").status_code == 200
+    assert app.get(f"/api/threads/{THREAD}").json()["key"] == f"codex:{THREAD}"
+    assert app.get("/api/threads/claude:not-a-uuid").status_code == 400
+    assert app.get(f"/api/threads/cursor:{CLAUDE}").status_code == 404
+
+    with app.stream("GET", f"/api/stream?thread=claude:{CLAUDE}") as stream:
+        body = "".join(stream.iter_text())
+    assert body.startswith("event: thread\n") and f'"key": "claude:{CLAUDE}"' in body

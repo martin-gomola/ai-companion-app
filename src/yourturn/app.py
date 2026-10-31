@@ -1,4 +1,4 @@
-"""Loopback-only Your Turn server: an inbox of Codex chats and a per-turn summary of each, keyed by thread id."""
+"""Loopback-only Your Turn server: an inbox of agent chats (Codex, Claude Code) and a per-turn summary of each."""
 
 from __future__ import annotations
 
@@ -49,19 +49,22 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         return response
 
-    def checked(thread: str) -> SessionKey:
-        """Resolve `codex:<uuid>` or a bare `<uuid>` (same rule as `SessionHub.detail`) to a Codex session key.
+    served = {Harness(adapter.name) for adapter in hub.adapters}
 
-        Malformed ids -> 400; a well-formed key for a harness with no session source yet -> 404.
+    def checked(thread: str) -> SessionKey:
+        """Resolve `<harness>:<uuid>` or a bare `<uuid>` (Codex, same rule as `SessionHub.detail`) to a session key.
+
+        Malformed ids -> 400; a well-formed key for a harness with no session source -> 404.
         """
         try:
             key = SessionKey.parse(thread)
         except ValueError:
-            raise HTTPException(status_code=400, detail="thread must be a Codex thread id") from None
-        if key.harness is not Harness.CODEX:
+            raise HTTPException(status_code=400, detail="thread must be a session key or Codex thread id") from None
+        if key.harness not in served:
             raise HTTPException(status_code=404, detail="no session source for this harness")
+        # Codex thread ids and Claude Code session ids are both UUIDs.
         if not UUID.match(key.native_id):
-            raise HTTPException(status_code=400, detail="thread must be a Codex thread id")
+            raise HTTPException(status_code=400, detail="thread must be a session key or Codex thread id")
         return key
 
     @app.get("/", response_class=HTMLResponse)
@@ -83,7 +86,7 @@ def create_app(
     def thread_state(thread: str) -> dict[str, Any]:
         data = hub.detail_dict(checked(thread))
         if data is None:
-            raise HTTPException(status_code=404, detail="no rollout file for this thread")
+            raise HTTPException(status_code=404, detail="no session file for this thread")
         return data
 
     @app.get("/api/stream")

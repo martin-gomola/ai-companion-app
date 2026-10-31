@@ -439,6 +439,7 @@ body[data-panel="open"] #sections .group[data-section="waiting"] { margin-inline
 .row-tags .tag { font-size: var(--text-label); }
 .row-project { display: flex; align-items: center; min-width: 0; color: var(--color-text-muted); font-size: var(--text-preview); }
 .row-project > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-project > .row-harness { flex: none; margin-right: var(--space-2); padding: 0 var(--space-1); border-radius: var(--radius-sm); box-shadow: var(--edge); font-size: var(--text-label); }
 .row-time { color: var(--color-text-muted); font-size: var(--text-preview); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .row-chevron { color: var(--color-text); width: 20px; height: 20px; }
 .row:hover, .row:active { background: var(--color-surface-pressed); }
