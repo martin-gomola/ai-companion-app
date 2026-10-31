@@ -256,7 +256,7 @@ Scrollbars are thin with no track. The page shows a faint thumb; inner panes (th
 
 On mobile, group the navigation trigger, Live state and quick theme control at the top right. Move the inbox title to the top-left and keep the phone header compact. Full chat pages retain the Back link on the left.
 
-The footer shows only the application version from package metadata. In split views it sits under the detail pane; the chat list extends to the bottom. Local-session and read-only explanations belong in Help.
+The footer shows the application version from package metadata and an icon link to the GitHub repository. In split views it sits under the detail pane; the chat list extends to the bottom. Local-session and read-only explanations belong in Help.
 
 Chat sections keep intrinsic row heights and align to the top of their scroll container. Sparse filtered lists must not stretch headings or distribute empty space between heading and rows. Split-view sections have no extra top inset.
 
