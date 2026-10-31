@@ -15,7 +15,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from yourturn import __version__
 from yourturn.config import DEFAULT_HISTORY_DAYS
-from yourturn.rollout import THREAD_ID, Sessions
+from yourturn.engine import SessionHub
+from yourturn.model import UUID, Harness, SessionKey
 
 LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 POLL_SECONDS = 1.0
@@ -37,7 +38,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Your Turn", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOOPBACK_HOSTS)
-    sessions = Sessions(codex_home)
+    hub = SessionHub.for_codex_home(codex_home)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Response:
@@ -48,10 +49,20 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         return response
 
-    def checked(thread: str) -> str:
-        if not THREAD_ID.match(thread):
+    def checked(thread: str) -> SessionKey:
+        """Resolve `codex:<uuid>` or a bare `<uuid>` (same rule as `SessionHub.detail`) to a Codex session key.
+
+        Malformed ids -> 400; a well-formed key for a harness with no session source yet -> 404.
+        """
+        try:
+            key = SessionKey.parse(thread)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="thread must be a Codex thread id") from None
+        if key.harness is not Harness.CODEX:
+            raise HTTPException(status_code=404, detail="no session source for this harness")
+        if not UUID.match(key.native_id):
             raise HTTPException(status_code=400, detail="thread must be a Codex thread id")
-        return thread
+        return key
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -66,30 +77,29 @@ def create_app(
 
     @app.get("/api/inbox")
     def inbox() -> list[dict[str, Any]]:
-        return sessions.inbox(history_days)
+        return hub.inbox_dicts(history_days)
 
     @app.get("/api/threads/{thread}")
     def thread_state(thread: str) -> dict[str, Any]:
-        data = sessions.snapshot(checked(thread))
+        data = hub.detail_dict(checked(thread))
         if data is None:
             raise HTTPException(status_code=404, detail="no rollout file for this thread")
         return data
 
     @app.get("/api/stream")
     async def stream(request: Request, thread: str | None = None) -> StreamingResponse:
-        if thread:
-            checked(thread)
+        key: SessionKey | None = checked(thread) if thread else None
 
         def current(last: str | None) -> tuple[str, Any]:
             """Blocking file reads; called off the event loop so one large chat cannot stall every stream."""
-            if thread:
-                data = sessions.snapshot(thread)
+            if key is not None:
+                data = hub.detail_dict(key)
                 return (f"{data['version']}:{data['quiet']}" if data else "missing"), data
             if last is None:
                 # Warm the entry cache so the first marker already knows which chats are quiet.
-                sessions.inbox(history_days)
-            marker = sessions.inbox_fingerprint(history_days)
-            return marker, sessions.inbox(history_days) if marker != last else None
+                hub.inbox_dicts(history_days)
+            marker = hub.inbox_fingerprint(history_days)
+            return marker, hub.inbox_dicts(history_days) if marker != last else None
 
         async def events() -> AsyncIterator[str]:
             last, idle = None, 0.0
