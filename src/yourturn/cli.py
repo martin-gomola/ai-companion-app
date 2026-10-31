@@ -40,6 +40,8 @@ def main(argv: list[str] | None = None) -> None:
                              default=Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")))
         command.add_argument("--cursor-home", type=Path, default=Path.home() / ".cursor",
                              help="Cursor home holding projects/*/agent-transcripts (default: ~/.cursor)")
+        command.add_argument("--cursor-user-dir", type=Path, default=None,
+                             help="Cursor user data folder holding globalStorage/state.vscdb (default: per OS)")
     commands.add_parser("mcp", help="Run the stdio MCP server used by the Codex plugin")
     args = parser.parse_args(argv)
 
@@ -68,4 +70,4 @@ def main(argv: list[str] | None = None) -> None:
 
     print(f"Your Turn on http://127.0.0.1:{args.port}", flush=True)
     uvicorn.run(create_app(args.codex_home, history_days=history_days, claude_home=args.claude_home,
-                           cursor_home=args.cursor_home), host="127.0.0.1", port=args.port, log_level="warning")
+                           cursor_home=args.cursor_home, cursor_user_dir=args.cursor_user_dir), host="127.0.0.1", port=args.port, log_level="warning")
