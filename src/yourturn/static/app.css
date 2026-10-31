@@ -244,9 +244,10 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 .check[data-state="passed"] > svg, .check[data-state="passed"] .check-result { color: var(--color-new); }
 .check[data-state="failed"] > svg, .check[data-state="failed"] .check-result { color: var(--color-danger); }
 .check[data-state="unknown"] > svg { color: var(--color-text-muted); }
-/* Evidence strip: the latest turn's checks and files and the session's decisions in one line; each
-   chip jumps to its section. Same role colors as the check rows they summarize. */
+/* Evidence strip: the latest turn's checks and files and the session's decisions; each chip jumps
+   to its section. Same role colors as the check rows they summarize. */
 .evidence ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; }
+.top .evidence, .panel-heading .evidence { margin-top: var(--space-3); }
 .evidence-chip {
   display: inline-flex; align-items: center; min-height: 32px; padding-inline: var(--space-3);
   border-radius: var(--radius-pill); box-shadow: var(--edge); background: var(--color-surface);
@@ -360,7 +361,8 @@ details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
 .footer { display: flex; align-items: center; justify-content: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); }
 .footer-link { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-md); color: inherit; }
 .footer-link:hover { color: var(--color-text); background: var(--color-surface-pressed); }
-.footer-link svg { width: 18px; height: 18px; }
+/* Brand marks stay filled; an outline GitHub cat breaks up at footer size. */
+.footer-link svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
 
 @media (max-width: 480px) {
   .row-text, .decision-other-options, .turn-body, .check .command, .status-text .command { font-size: var(--text-md); }
@@ -483,6 +485,7 @@ body[data-panel="open"] #sections .group[data-section="waiting"] { margin-inline
 [data-view="thread"] .page { padding-top: var(--space-6); grid-template-columns: minmax(0, var(--page-max)); justify-content: center; }
 .panel-head { display: flex; gap: var(--space-3); align-items: start; }
 .panel-heading { flex: 1; min-width: 0; }
+.panel-inbox { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 #panel-title { font-size: var(--text-lg); }
 #panel-title:focus { outline: none; }
 body[data-panel="open"] { height: 100dvh; overflow: hidden; }

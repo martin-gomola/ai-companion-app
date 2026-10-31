@@ -25,3 +25,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 The decorative header scenes and leaf artwork were generated for this project with AI image generation and are not third-party assets.
+
+The footer's GitHub mark is GitHub's logo, used only to link to this project's repository. Its path comes from [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0 1.0).

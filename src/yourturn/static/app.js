@@ -1051,6 +1051,8 @@ function renderEvidence(thread, turn) {
     files.length && [`${plural(files.length, "file")} changed`, "#outcome-wrap", ""],
     decisions && [plural(decisions, "decision"), "#decisions-wrap", ""],
   ].filter(Boolean);
+  const header = threadId ? $("thread-heading") : document.querySelector(".panel-heading");
+  header.append($("evidence"));
   $("evidence").hidden = chips.length === 0;
   $("evidence-list").replaceChildren(...chips.map(([text, target, tone]) => {
     const link = el("a", "evidence-chip", text);
@@ -1069,7 +1071,10 @@ $("evidence-list").addEventListener("click", (event) => {
   const target = document.querySelector(link.getAttribute("href"));
   // Files sit in a closed disclosure; open it so the jump lands on the list itself.
   if (link.getAttribute("href") === "#outcome-wrap") $("files-wrap").querySelector("details").open = true;
-  target?.scrollIntoView({ block: "start", behavior: calm.matches ? "auto" : "smooth" });
+  if (target) {
+    if (document.body.dataset.panel === "open") target.style.setProperty("scroll-margin-top", `calc(var(--space-2) + ${$("panel-head").offsetHeight}px)`);
+    target.scrollIntoView({ block: "start", behavior: calm.matches ? "auto" : "smooth" });
+  }
 });
 
 function renderThread(thread) {

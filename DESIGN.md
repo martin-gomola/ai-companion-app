@@ -89,7 +89,7 @@ for their own sake, are out of scope.
 - At 1280px and above, an ordinary row click opens a bookmarkable `/?open=<id>` detail pane;
   the inbox becomes a compact list beside it. The sidebar remains available.
 - Selecting another filter keeps the detail open. Modified clicks use the real full-chat link.
-- Escape/Close returns focus to the originating row, or the current filter if the seen result moved.
+- Escape or the Inbox button returns focus to the originating row, or the current filter if the seen result moved.
   Browser Back/Forward restores pane state. Narrowing the viewport redirects an open pane to the
   full chat page with its filter return scope preserved.
 - Detail content scrolls independently and stays top-aligned. Escape inside the Settings/Help panel
@@ -147,8 +147,8 @@ for their own sake, are out of scope.
     skipped the handoff format. When a check in the latest turn failed, either line adds ", but a
     check failed" in the danger color.
   - Loading and missing chats hide the handoff.
-- Evidence strip, between the status card and What happened: one line of chips answering "can I
-  trust it?" before the details. Latest turn: N failed, N passed, N without exit code / not recorded
+- Evidence strip, in the chat header under its title and metadata: chips answering "can I trust it?"
+  before the details. Latest turn: N failed, N passed, N without exit code / not recorded
   (per the app's capabilities), No checks after edits, Edited after last check, N files changed;
   session: N decisions. Chips use the check rows' role colors, each jumps to its section (Files opens
   its disclosure), jumps land below the sticky header, and the strip is hidden when there is no
