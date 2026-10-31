@@ -141,11 +141,14 @@ SOFTWARE.
       <div class="status-body" id="status-body" data-kind="unknown" hidden>
         <p class="status-kind" id="next-kind" hidden></p>
         <div class="status-text" id="status-text" aria-live="polite"></div>
+        <div class="pending-step" id="pending-step" hidden><p class="recap-label">Last recorded step</p><div id="pending-step-text"></div></div>
         <p class="quiet-note" id="quiet-note" hidden></p>
         <ul class="options" id="next-options" hidden></ul>
         <p id="reminder-note" role="status"></p>
       </div>
     </section>
+
+    <nav class="evidence" id="evidence" aria-label="Evidence for this chat" hidden><ul id="evidence-list"></ul></nav>
 
     <section class="group" id="outcome-wrap" aria-labelledby="outcome-title" hidden>
       <h2 class="group-title" id="outcome-title"><span class="tone" data-tone="accent"><svg aria-hidden="true"><use href="#i-message"/></svg></span>What happened</h2>

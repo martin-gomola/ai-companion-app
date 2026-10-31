@@ -627,6 +627,16 @@ function renderStatus(thread, turn) {
   } else {
     setStatusText(turn.next_text);
   }
+  // An approval request names no step, so show the latest recorded one, and only while its turn is
+  // still open: a turn that already ended has nothing left to approve, whatever the app reports.
+  const lastStep = turn?.next_kind === "approve" && !turn.ended_at
+    ? [...thread.steps].reverse().find((step) => step.turn === turn.index && ["command", "tool", "edit"].includes(step.kind))
+    : null;
+  $("pending-step").hidden = !lastStep;
+  if (lastStep) {
+    const text = lastStep.kind === "edit" ? `${lastStep.title}: ${lastStep.detail}` : lastStep.title;
+    if ($("pending-step-text").textContent !== text) $("pending-step-text").replaceChildren(lastStep.kind === "command" ? commandCode(text) : el("p", "", text));
+  }
   $("status-body").dataset.kind = kind;
   $("status-body").dataset.check = failed && (kind === "none" || kind === "unknown") ? "failed" : "";
   const quietNote = quiet ? `No activity since ${clock(thread.updated_at)} (${ago(thread.updated_at)}). ${quietHint(thread).replace(/^No activity recorded\. /, "")}` : "";
@@ -1004,6 +1014,48 @@ function metaItems(thread) {
   return items;
 }
 
+// Evidence strip: one line that answers "can I trust it?" before the details, each chip jumping
+// to its section. Missing evidence is shown as missing rather than left out.
+function renderEvidence(thread, turn) {
+  const checks = turn?.checks || [];
+  const files = turn?.files || [];
+  const exitCodes = thread.capabilities?.exit_codes !== false;
+  const count = (test) => checks.filter(test).length;
+  const failed = count((check) => check.exit_code !== null && check.exit_code !== 0);
+  const passed = count((check) => check.exit_code === 0);
+  const unknown = count((check) => check.exit_code === null);
+  const decisions = thread.decisions.filter((decision) => decision.chosen !== null).length;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const chips = [
+    failed && [`${failed} failed`, "#checks-wrap", "danger"],
+    passed && [`${passed} passed`, "#checks-wrap", "passed"],
+    unknown && [`${unknown} ${exitCodes ? "without exit code" : "not recorded"}`, "#checks-wrap", "muted"],
+    files.length && !checks.length && ["No checks after edits", "#checks-wrap", "warning"],
+    checks.length && turn.edited_after_check && ["Edited after last check", "#checks-wrap", "warning"],
+    files.length && [`${plural(files.length, "file")} changed`, "#outcome-wrap", ""],
+    decisions && [plural(decisions, "decision"), "#decisions-wrap", ""],
+  ].filter(Boolean);
+  $("evidence").hidden = chips.length === 0;
+  $("evidence-list").replaceChildren(...chips.map(([text, target, tone]) => {
+    const link = el("a", "evidence-chip", text);
+    link.href = target;
+    if (tone) link.dataset.tone = tone;
+    const item = el("li");
+    item.append(link);
+    return item;
+  }));
+}
+
+$("evidence-list").addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  if (!link) return;
+  event.preventDefault();
+  const target = document.querySelector(link.getAttribute("href"));
+  // Files sit in a closed disclosure; open it so the jump lands on the list itself.
+  if (link.getAttribute("href") === "#outcome-wrap") $("files-wrap").querySelector("details").open = true;
+  target?.scrollIntoView({ block: "start", behavior: calm.matches ? "auto" : "smooth" });
+});
+
 function renderThread(thread) {
   const title = threadId ? $("title") : $("panel-title");
   const openingPanel = !threadId && title.textContent === "Loading…";
@@ -1020,7 +1072,7 @@ function renderThread(thread) {
     $("status-body").dataset.kind = "none";
     $("next-kind").hidden = true;
     setStatusText("It may have been archived. Go back to the inbox.");
-    for (const id of ["open-codex", "next-options", "reminder-toggle", "quiet-note", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
+    for (const id of ["open-codex", "next-options", "reminder-toggle", "quiet-note", "pending-step", "evidence", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
     if (openingPanel) title.focus({ preventScroll: true });
     return;
   }
@@ -1032,6 +1084,7 @@ function renderThread(thread) {
   subtitle.replaceChildren(...metaItems(thread));
   $("more").hidden = false;
   renderStatus(thread, turn);
+  renderEvidence(thread, turn);
   renderChanges(thread, turn);
   renderDecisions(thread);
   renderEarlier(thread.turns);
@@ -1067,7 +1120,7 @@ function resetThread() {
   $("status-card").dataset.status = "idle";
   $("status-icon").setAttribute("href", "#i-turn");
   $("status-title").textContent = "Loading…";
-  for (const id of ["status-body", "open-codex", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
+  for (const id of ["status-body", "open-codex", "evidence", "outcome-wrap", "checks-wrap", "decisions-wrap", "more"]) $(id).hidden = true;
   for (const details of $("thread-view").querySelectorAll("details")) details.open = false;
   $("thread-view").scrollTop = 0;
 }

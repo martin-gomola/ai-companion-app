@@ -244,6 +244,22 @@ p, .status-text, .outcome, .row-text { text-wrap: pretty; }
 .check[data-state="passed"] > svg, .check[data-state="passed"] .check-result { color: var(--color-new); }
 .check[data-state="failed"] > svg, .check[data-state="failed"] .check-result { color: var(--color-danger); }
 .check[data-state="unknown"] > svg { color: var(--color-text-muted); }
+/* Evidence strip: the latest turn's checks and files and the session's decisions in one line; each
+   chip jumps to its section. Same role colors as the check rows they summarize. */
+.evidence ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; }
+.evidence-chip {
+  display: inline-flex; align-items: center; min-height: 32px; padding-inline: var(--space-3);
+  border-radius: var(--radius-pill); box-shadow: var(--edge); background: var(--color-surface);
+  color: var(--color-text); font-size: var(--text-sm); font-variant-numeric: tabular-nums; text-decoration: none;
+}
+.evidence-chip:hover { background: var(--color-fill); }
+.evidence-chip[data-tone="passed"] { color: var(--color-new); }
+.evidence-chip[data-tone="danger"] { color: var(--color-danger); }
+.evidence-chip[data-tone="warning"] { color: var(--color-waiting); }
+.evidence-chip[data-tone="muted"] { color: var(--color-text-muted); }
+/* Jumps land below the sticky chat header, not under it. */
+#outcome-wrap, #checks-wrap, #decisions-wrap { scroll-margin-top: calc(2 * var(--size-control) + var(--space-2)); }
+.pending-step { display: grid; gap: var(--space-1); }
 .command { white-space: pre-wrap; line-height: var(--leading-relaxed); }
 .command-executable { color: var(--color-new); }
 .command-path { color: var(--color-accent); }
@@ -503,7 +519,9 @@ body[data-panel="open"] .panel-head { position: sticky; top: 0; z-index: 2; padd
   body[data-panel="open"] .page { grid-template-rows: var(--hero-pinned) minmax(0, 1fr) auto; padding-top: 0; }
   body[data-panel="open"] #inbox-view { display: contents; }
   body[data-panel="open"] .inbox-hero { grid-column: 1 / -1; grid-row: 1; position: relative; top: auto; height: var(--hero-pinned); margin-inline: calc(-1 * var(--page-inset)) calc(-1 * var(--page-inset-end)); z-index: 0; }
-  body[data-panel="open"] .segments { display: flex; }
+  /* Filter bar and the Live/theme cluster share this strip, so both centre in it. */
+  body[data-panel="open"] .segments { display: flex; bottom: calc((var(--hero-pinned) - 56px) / 2); }
+  body[data-panel="open"] .bar { top: calc((var(--hero-pinned) - var(--size-control)) / 2); }
   body[data-panel="open"] .compact-filter { display: none; }
   body[data-panel="open"] #sections, body[data-panel="open"] #inbox-empty, body[data-panel="open"] #filter-empty { grid-column: 1; grid-row: 2 / 4; min-height: 0; overflow-y: auto; }
   body[data-panel="open"] #thread-view { grid-column: 2; grid-row: 2; }

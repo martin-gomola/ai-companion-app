@@ -136,10 +136,19 @@ for their own sake, are out of scope.
     waiting for approval in the chat's app (Codex, Claude Code, or Cursor) or running a long command.
   - Approval (Cursor only, which reports it): the chat is in Needs you with the action label
     Approve and "Approve pending action in Cursor"; it leaves Needs you when Cursor clears the flag.
+    While the latest turn is still open, a "Last recorded step" line shows that turn's last command,
+    tool call, or edit (commands in mono). It never claims to be the pending action, and it is hidden
+    once the turn has ended, since nothing in an ended turn can still be awaiting approval.
   - Done: "No further action was requested", or "No next action was recorded" when the answer
     skipped the handoff format. When a check in the latest turn failed, either line adds ", but a
     check failed" in the danger color.
   - Loading and missing chats hide the handoff.
+- Evidence strip, between the status card and What happened: one line of chips answering "can I
+  trust it?" before the details. Latest turn: N failed, N passed, N without exit code / not recorded
+  (per the app's capabilities), No checks after edits, Edited after last check, N files changed;
+  session: N decisions. Chips use the check rows' role colors, each jumps to its section (Files opens
+  its disclosure), jumps land below the sticky header, and the strip is hidden when there is no
+  evidence at all. Missing evidence is a chip of its own rather than an absence.
 - What happened: the latest turn's outcome, when there is one, and a files row that expands to the
   latest turn's changed paths relative to the working directory.
 - Checks, as grouped rows: a warning row when files changed after the last check, when edits had no
