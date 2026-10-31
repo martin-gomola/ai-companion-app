@@ -43,6 +43,8 @@ for their own sake, are out of scope.
   room and object layers were rejected after misalignment produced a doubled niche. Keep machine,
   plant, capsules and their lighting together. Only live HTML controls are layered over the image.
   No whole UI mockup is shipped as a background.
+- When the header artwork is visible at intermediate widths, keep the title at the desktop lower
+  inset. On phone widths the artwork is hidden and the title returns to the top.
 - Status filters have one owner: the full inbox uses the glass tab bar; the compact detail list
   uses one labeled native selector with the same counts and URL semantics. The outer rail has no
   status filters. The selector uses appearance:auto with explicit indicator clearance.
@@ -59,19 +61,22 @@ for their own sake, are out of scope.
   that chat. Chats that already needed the user when the page loaded do not notify.
 - Ages, quiet durations, and the quiet note refresh every 30 seconds in place, because a quiet chat
   writes nothing that would push an update.
-- Header filters are All, Needs you, Working, New results and Earlier, with a selected underline.
+- Header filters are All, Needs you, Working, New results and Earlier, with a selected underline and
+  compact status-colored count badges. A rising New results count briefly turns red and pulses; the
+  initial count does not animate, and reduced-motion users receive no pulse.
 - Each section initially shows10 chats at every width and filter. Load more adds10, retaining the expanded count through live updates. Counts always cover the full matching set.
 - One history_days setting in config.toml defines the inbox window for every status (default14 days, positive integer, read at server start). Older chats remain accessible by direct link; no hidden latest30 exception.
 - Empty sections are not drawn. Needs you therefore only appears with chats, inside a soft orange
   tint and edge, so the color itself means "something is waiting".
 - In All, with more than one section, each section heading is a disclosure button: a chevron on
-  the right, and the chat count only while folded. Folding lasts through live updates.
+  the right, and the chat count only while folded. Hover and keyboard focus highlight the control;
+  rows sit slightly inset beneath the heading. Folding lasts through live updates.
 - Earlier is history, so it starts folded. It is open when it is the only section, when Earlier
   is the filter, or when the open chat is in it. Once open it stays open, so a new chat never
   folds the list under the reader. A folded section opens when the open chat moves into it.
 - Needs you retains longest-wait-first ordering. Other sections sort by latest change. Existing status, seen and quiet semantics remain unchanged.
 - Each status cue appears once. A desktop row has a pale outline-glyph chip, title/preview/action or
-  check tags, project name (no icon), age and navigation chevron. Section headings carry no counts;
+  check tags, a folder glyph and monospaced project name, age and navigation chevron. Section headings carry no counts;
   the filters own them. Rows in New results carry no New tag. Titles and secondary text are neutral
   rather than blue.
 - A Needs you row shows the request in full-strength text, and a pending question adds its recorded
@@ -119,18 +124,24 @@ for their own sake, are out of scope.
   right. Below it, a large title (the chat name) and a meta row with fixed slots in a fixed order,
   each shown only when known: the agent pill (Codex, Claude Code, Cursor; the same pill as inbox
   rows, full app name here), project (full path on hover), recorded Git branch, and the time of the
-  last recorded event. Items align on the text baseline (not box center), so the smaller pill
+  last recorded event. Project and branch values use monospaced text with decorative folder and
+  branch glyphs; text values remain the accessible names. Items align on the text baseline (not box center), so the smaller pill
   text sits on the same line. Text slots are dot-separated with the dot trailing its item, so a wrapped
   line never starts with a separator. New metadata joins this row as another slot. The wide-screen
   pane header uses the same row.
 - The status card comes first. Its header shows the status glyph and label and the chat's action:
   "Open in Codex" (deep link), "Copy resume command" for Claude Code (copies `claude --resume <id>`
-  and briefly confirms), or "Open in Cursor" (opens the project folder). It is the only filled accent button on the page, and it is filled only when the chat
-  needs the user or a check failed; otherwise it is an outlined secondary link. Its body depends on state:
+  and briefly confirms), or "Open in Cursor" (opens the project folder). Each action uses an outlined
+  surface with accent text and an icon matching its behavior; placement keeps it easy to find without
+  a filled color block. When the status card
+  is at most 64rem wide, the action moves below the title and spans the card width so the title keeps
+  room on its row. A phone-width fallback covers browsers without container queries.
+  Its body depends on state:
   - Needs you: the title adds how long the request has waited ("Needs you · 12d ago"), so fresh and
     stale requests read differently. Then the action label and the request, with recorded options as
     a plain read-only list, then the reminder control and its note ("Only affects this browser's
-    inbox"). The action label is omitted when the request already starts with it, so one fact is
+    inbox"). Numbered "Next steps for you" text appears as an ordered list; other request text stays
+    as written. The action label is omitted when the request already starts with it, so one fact is
     never stated twice ("Approve pending action in Cursor" needs no Approve label above it).
   - Working: this turn's latest recorded step, as its kind (Ran a command, Edited files, ...) and
     its source title, with commands in mono. The glyph rotates. A recorded command does not mean
@@ -165,8 +176,9 @@ for their own sake, are out of scope.
 - Commands and paths use mono and wrap. Command highlighting (executable, path, flag, string,
   operator) is a presentation hint, not shell parsing; every character stays selectable inert text.
 - Decisions, as grouped rows: the question, the recorded answer labelled Agent decision or Your
-  answer, the optional reason, the recorded turn and local time when available, and a collapsed
-  Other options disclosure that must not resemble choice buttons. When the app recorded that a
+  answer, a collapsed Show full decision disclosure for long answers, the optional reason, and a footer with the collapsed Other options disclosure on the left
+  and recorded turn and local time on the right when available. The disclosure must not resemble
+  choice buttons; on narrow cards, metadata wraps below it and stays right-aligned. When the app recorded that a
   question was answered but not the answer (Cursor), the question leads, the context line reads
   "Answered in Cursor; the answer was not recorded.", and the disclosure lists all Options (n). Three recent decisions show
   directly; older ones sit behind a counted disclosure row. A pending question appears in the status

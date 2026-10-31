@@ -6,6 +6,8 @@ function readPreference(key) {
 }
 const MAX_STEPS = 80;
 const SECTION_LIMIT = 10;
+const DECISION_ANSWER_PREVIEW_LIMIT = 120;
+const NEW_RESULT_BADGE_HIGHLIGHT_MS = 1400;
 const visibleRows = new Map();
 const sectionOpen = new Map();
 let revealed = "";
@@ -68,7 +70,10 @@ document.body.dataset.view = threadId ? "thread" : "inbox";
 if (threadId) $("nav-inbox").removeAttribute("aria-current");
 const wideDetail = matchMedia("(min-width: 1280px)");
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
+const WORKING_SPIN_PERIOD_MS = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--motion-status-working"));
 let inboxData = null;
+let previousNewResultsCount = null;
+let incomingBadgeTimer = null;
 let inboxLayout = "";
 let threadData = null;
 let filter = "key";
@@ -93,7 +98,7 @@ function icon(name) {
 
 // Every working glyph shares one phase, so live re-renders never restart the rotation.
 function syncSpin(use) {
-  use.style.animationDelay = `-${performance.now() % 1400}ms`;
+  use.style.animationDelay = `-${performance.now() % WORKING_SPIN_PERIOD_MS}ms`;
 }
 
 const ROW_ICONS = {
@@ -252,7 +257,9 @@ function renderRow(chat) {
   if (state === "waiting" && chat.question && chat.options?.length) body.append(el("span", "row-options", chat.options.join(" · ")));
   const project = el("span", "row-project");
   if (HARNESS_LABEL[chat.harness]) project.append(el("span", "harness-pill", HARNESS_LABEL[chat.harness]));
-  project.append(el("span", "", projectName(chat)));
+  const projectIcon = icon("i-workspace");
+  projectIcon.classList.add("project-icon");
+  project.append(projectIcon, el("span", "project-name", projectName(chat)));
   project.title = projectName(chat);
   const chevron = icon("i-chevron");
   chevron.classList.add("row-chevron");
@@ -399,6 +406,9 @@ function renderInbox(chats) {
 
 function syncNavigation(chats) {
   const groups = groupChats(chats);
+  const newResultsCount = groups.get("new").length;
+  const newResultsArrived = previousNewResultsCount !== null && newResultsCount > previousNewResultsCount;
+  previousNewResultsCount = newResultsCount;
   const selector = $("compact-status");
   for (const option of selector.options) {
     const kind = option.value;
@@ -411,7 +421,15 @@ function syncNavigation(chats) {
     segment.href = inboxUrl(kind, threadId ? "" : openId);
     const count = kind ? groups.get(kind).length : chats.length;
     segment.dataset.empty = String(count === 0);
-    segment.querySelector(".segment-count").textContent = count;
+    const badge = segment.querySelector(".segment-count");
+    badge.textContent = count;
+    if (kind === "new" && newResultsArrived) {
+      badge.classList.remove("is-incoming");
+      void badge.offsetWidth;
+      badge.classList.add("is-incoming");
+      clearTimeout(incomingBadgeTimer);
+      incomingBadgeTimer = setTimeout(() => badge.classList.remove("is-incoming"), NEW_RESULT_BADGE_HIGHLIGHT_MS);
+    }
     const label = kind ? INBOX_FILTERS[kind].label : "All recent chats";
     segment.setAttribute("aria-label", `${label}: ${count} ${count === 1 ? "chat" : "chats"}`);
     if (kind === inboxStatus) segment.setAttribute("aria-current", "page");
@@ -569,12 +587,36 @@ function renderSessionInfo(thread, turn) {
   }));
 }
 
+function numberedNextSteps(text) {
+  const prefix = text.match(/^(Next steps for you:)\s*1\.\s+/i);
+  if (!prefix) return null;
+  const body = text.slice(prefix[0].length);
+  const markers = [...body.matchAll(/(?:^|\s)(\d+)\.\s+/g)];
+  if (!markers.length) return null;
+  const steps = [body.slice(0, markers[0].index).trim()];
+  for (let index = 0; index < markers.length; index++) {
+    const marker = markers[index];
+    if (Number(marker[1]) !== index + 2) return null;
+    const start = marker.index + marker[0].length;
+    const end = markers[index + 1]?.index ?? body.length;
+    steps.push(body.slice(start, end).trim());
+  }
+  return steps.some((step) => !step) ? null : { label: prefix[1], steps };
+}
+
 function setStatusText(content, command = false) {
   const target = $("status-text");
   const text = typeof content === "string" ? content : "";
+  const structured = command ? null : numberedNextSteps(text);
   // Leave the selected text untouched when an unrelated value changes.
-  if (target.textContent === text && Boolean(target.querySelector("code")) === command) return;
-  target.replaceChildren(command ? commandCode(text) : el("p", "", text));
+  if ((target.dataset.sourceText ?? target.textContent) === text && Boolean(target.querySelector("code")) === command) return;
+  target.dataset.sourceText = text;
+  if (command) target.replaceChildren(commandCode(text));
+  else if (structured) {
+    const list = el("ol", "status-steps");
+    list.append(...structured.steps.map((step) => el("li", "", step)));
+    target.replaceChildren(el("p", "status-steps-label", structured.label), list);
+  } else target.replaceChildren(el("p", "", text));
 }
 
 function renderStatus(thread, turn) {
@@ -601,7 +643,7 @@ function renderStatus(thread, turn) {
   $("open-codex").setAttribute("aria-label", resume ? `${action}: ${resume}` : thread.harness === "cursor" ? "Open the project in Cursor" : "Open in Codex (full chat)");
   $("open-codex").title = resume;
   $("open-codex").hidden = !resume && !link;
-  $("open-codex").dataset.emphasis = state === "waiting" || failed ? "" : "quiet";
+  $("open-action-icon").setAttribute("href", resume ? "#i-copy" : "#i-external");
   $("status-body").hidden = false;
 
   const pending = [...thread.decisions].reverse().find((d) => d.source === "asked" && d.chosen === null);
@@ -894,6 +936,12 @@ function renderSessionFiles(thread, turn) {
   $("session-files").replaceChildren(...paths.map((path) => fileItem(path, thread.cwd)));
 }
 
+function decisionPreview(text) {
+  const preview = text.slice(0, DECISION_ANSWER_PREVIEW_LIMIT);
+  const boundary = preview.lastIndexOf(" ");
+  return `${preview.slice(0, boundary > DECISION_ANSWER_PREVIEW_LIMIT * 0.75 ? boundary : preview.length).trimEnd()}…`;
+}
+
 function renderDecisions(thread) {
   const decisions = thread.decisions.map((decision, index) => ({ decision, key: JSON.stringify([decision.at, decision.turn, decision.source, decision.question, index]) })).filter(({ decision }) => decision.chosen !== null).reverse();
   const existing = new Map([...$("decisions-wrap").querySelectorAll(".decision")].map((item) => [item.dataset.key, item]));
@@ -904,23 +952,35 @@ function renderDecisions(thread) {
     const item = existing.get(key) || el("li", "list-row decision");
     const record = JSON.stringify(decision);
     if (item.dataset.record === record) return item;
-    const expanded = item.querySelector("details")?.open || false;
+    const alternativesExpanded = item.querySelector(".decision-alternatives")?.open || false;
+    const answerExpanded = item.querySelector(".decision-full-answer")?.open || false;
     item.dataset.key = key;
     item.dataset.record = record;
     const at = new Date(decision.at);
     const when = [decision.turn ? `Turn ${decision.turn}` : "", Number.isNaN(at.getTime()) ? "" : at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · ");
     const answer = (decision.chosen || "").replace(/^#+\s*/, "");
     // Without answer text the question is the only information, so it leads instead of a placeholder.
-    const lead = el("p", "decision-answer-text", answer || decision.question);
+    const longAnswer = answer.length > DECISION_ANSWER_PREVIEW_LIMIT;
+    const lead = el("p", "decision-answer-text", longAnswer ? decisionPreview(answer) : answer || decision.question);
     const context = el("p", "decision-question", answer ? decision.question : `Answered in ${appName(thread)}; the answer was not recorded.`);
     if (answer) context.title = decision.question;
     const meta = el("p", "decision-meta");
     meta.append(el("span", "decision-role", decision.source === "agent" ? "Agent" : "You"), ...(when ? [` · ${when}`] : []));
-    item.replaceChildren(lead, context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), meta);
+    let answerDisclosure = null;
+    if (longAnswer) {
+      answerDisclosure = el("details", "decision-full-answer");
+      answerDisclosure.open = answerExpanded;
+      const summary = el("summary");
+      const chevron = icon("i-chevron");
+      chevron.classList.add("disclosure-chevron");
+      summary.append(el("span", "decision-show-full", "Show full decision"), el("span", "decision-show-less", "Show less"), chevron);
+      answerDisclosure.append(summary, el("p", "decision-answer-full", answer));
+    }
     const alternatives = answer ? decision.options.filter((option) => option !== decision.chosen) : decision.options;
+    const footer = el("div", "decision-footer");
     if (alternatives.length) {
       const disclosure = el("details", "decision-alternatives");
-      disclosure.open = expanded;
+      disclosure.open = alternativesExpanded;
       const summary = el("summary");
       const chevron = icon("i-chevron");
       chevron.classList.add("disclosure-chevron");
@@ -928,8 +988,10 @@ function renderDecisions(thread) {
       const options = el("ul", "decision-other-options");
       options.replaceChildren(...alternatives.map((option) => el("li", "", option)));
       disclosure.append(summary, options);
-      item.append(disclosure);
+      footer.append(disclosure);
     }
+    footer.append(meta);
+    item.replaceChildren(lead, ...(answerDisclosure ? [answerDisclosure] : []), context, ...(decision.reason ? [el("p", "reason", decision.reason)] : []), footer);
     return item;
   });
   const older = items.slice(DECISION_PREVIEW_LIMIT);
@@ -1020,13 +1082,19 @@ function metaItems(thread) {
     pill.title = `Chat from ${appName(thread)}`;
     items.push(pill);
   }
-  const item = (text, title) => {
-    const node = el("span", "meta-item", text);
+  const item = (text, title, iconName = "", monospaced = false) => {
+    const node = el("span", "meta-item");
+    if (iconName) {
+      const glyph = icon(iconName);
+      glyph.classList.add("meta-icon");
+      node.append(glyph);
+    }
+    node.append(el("span", monospaced ? "meta-value meta-value--mono" : "meta-value", text));
     if (title) node.title = title;
     return node;
   };
-  items.push(item(projectName(thread), thread.cwd));
-  if (thread.git_branch) items.push(item(thread.git_branch, "Recorded Git branch"));
+  items.push(item(projectName(thread), thread.cwd, "i-workspace", true));
+  if (thread.git_branch) items.push(item(thread.git_branch, "Recorded Git branch", "i-branch", true));
   items.push(item(ago(thread.updated_at), "Last recorded event"));
   return items;
 }

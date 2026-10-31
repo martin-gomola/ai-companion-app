@@ -163,7 +163,7 @@ def test_page_footer_uses_application_version(codex_home: Path) -> None:
     from yourturn import __version__
 
     html = client(codex_home).get("/").text
-    assert f'aria-label="Application version">v{__version__}</footer>' in html
+    assert f'<footer class="footer"><span>v{__version__}</span>' in html
     assert "{{APP_VERSION}}" not in html
 
 
